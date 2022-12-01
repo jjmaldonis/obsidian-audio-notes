@@ -19,6 +19,12 @@
 		"esbuild": "0.14.47",
 		"obsidian": "latest",
 		"tslib": "2.4.0",
-		"typescript": "4.7.4"
+		"typescript": "4.7.4",
+		"@fortawesome/fontawesome-svg-core": "^1.2.32",
+		"@fortawesome/free-regular-svg-icons": "^5.15.3",
+		"@fortawesome/free-solid-svg-icons": "^5.15.1"
+	},
+	"dependencies": {
+		"@fortawesome/free-brands-svg-icons": "^5.15.4"
 	}
 }

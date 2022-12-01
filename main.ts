@@ -1,54 +1,93 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import {
+	MarkdownView,
+	Plugin,
+	MarkdownPostProcessorContext,
+	MarkdownRenderer,
+	MarkdownRenderChild,
+	Notice,
+} from 'obsidian';
+import { IconPrefix } from "@fortawesome/free-regular-svg-icons";
+import type { IconName } from "@fortawesome/fontawesome-svg-core";
+import {
+	findIconDefinition,
+	icon as getFAIcon,
+} from "@fortawesome/fontawesome-svg-core";
 
-// Remember to rename these classes and interfaces!
 
-interface MyPluginSettings {
-	mySetting: string;
+function getIcon(iconName: string) {
+	for (const prefix of ["fas", "far", "fab"] as IconPrefix[]) {
+		const definition = findIconDefinition({
+			iconName: iconName as IconName,
+			prefix
+		});
+		if (definition) return getFAIcon(definition).node[0];
+	}
 }
 
-const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
+
+class AudioNote {
+	constructor(
+		public filename: string,
+		public start: number,
+		public end: number,
+		public validationLine: string | undefined,
+		public quote: string,
+		public extendAudio: boolean,
+	) { }
+
+	get needsToBeUpdated(): boolean {
+		if (!this.validationLine) {
+			return true;
+		} else {
+			if (this.validationLine.trim().split(" ")[0] === `[${this.start},${this.end}]`) {
+				return false;
+			} else {
+				return true;
+			}
+		}
+	}
+
+	get transcriptFilename(): string {
+		const audioExtension = this.filename.split(".")[this.filename.split(".").length - 1];
+		const transcriptFilename = this.filename.slice(0, this.filename.length - (audioExtension.length + 1)) + ".transcript";
+		return transcriptFilename;
+	}
 }
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+class AudioNoteWithPositionInfo extends AudioNote {
+	constructor(
+		public filename: string,
+		public start: number,
+		public end: number,
+		public validationLine: string | undefined,
+		public quote: string,
+		public extendAudio: boolean,
+		public startLineNumber: number,
+		public endLineNumber: number,
+		public endChNumber: number,
+	) { super(filename, start, end, validationLine, quote, extendAudio); }
 
+	static fromAudioNote(audioNote: AudioNote, startLineNumber: number, endLineNumber: number, endChNumber: number): AudioNoteWithPositionInfo {
+		return new AudioNoteWithPositionInfo(
+			audioNote.filename,
+			audioNote.start,
+			audioNote.end,
+			audioNote.validationLine,
+			audioNote.quote,
+			audioNote.extendAudio,
+			startLineNumber,
+			endLineNumber,
+			endChNumber,
+		)
+	}
+}
+
+export default class AutomaticAudioNotes extends Plugin {
 	async onload() {
-		await this.loadSettings();
-
-		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
-		// Perform additional things with the ribbon
-		ribbonIconEl.addClass('my-plugin-ribbon-class');
-
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status Bar Text');
-
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: 'open-sample-modal-simple',
-			name: 'Open sample modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			}
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'sample-editor-command',
-			name: 'Sample editor command',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				console.log(editor.getSelection());
-				editor.replaceSelection('Sample Editor Command');
-			}
-		});
 		// This adds a complex command that can check whether the current state of the app allows execution of the command
 		this.addCommand({
-			id: 'open-sample-modal-complex',
-			name: 'Open sample modal (complex)',
+			id: 'generate-audio-notes',
+			name: 'Generate Audio Notes',
 			checkCallback: (checking: boolean) => {
 				// Conditions to check
 				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
@@ -56,7 +95,7 @@ export default class MyPlugin extends Plugin {
 					// If checking is true, we're simply "checking" if the command can be run.
 					// If checking is false, then we want to actually perform the operation.
 					if (!checking) {
-						new SampleModal(this.app).open();
+						this.rerenderAllAudioNotes(markdownView);
 					}
 
 					// This command will only show up in Command Palette when the check function returns true
@@ -65,73 +104,340 @@ export default class MyPlugin extends Plugin {
 			}
 		});
 
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+		this.registerMarkdownCodeBlockProcessor(
+			`audio-note`,
+			(src, el, ctx) => this.postprocessor(src, el, ctx)
+		);
+	}
 
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('click', evt);
+	async loadFiles(filenames: string[]): Promise<Map<string, string>> {
+		// Load the transcript for the file.
+		// Look for the current markdown file at the same time.
+		const results = new Map<string, string>();
+		const allFiles = this.app.vault.getFiles();
+		for (const filename of filenames) {
+			for (const f of allFiles) {
+				const contents = await this.app.vault.cachedRead(f);
+				if (f.path === filename) {
+					results.set(filename, contents);
+				}
+			}
+		}
+		return results;
+	}
+
+	async postprocessor(
+		src: string,
+		el: HTMLElement,
+		ctx?: MarkdownPostProcessorContext
+	) {
+		// Need this for rendering.
+		const currentMdFilename =
+			typeof ctx == "string"
+				? ctx
+				: ctx?.sourcePath ??
+				this.app.workspace.getActiveFile()?.path ??
+				"";
+
+		const audioNote = this.createAudioNoteFromSrc(src);
+		const admonitionType = "quote";
+		const theDiv = this.createAudioNoteDiv(audioNote, admonitionType, currentMdFilename, src, ctx);
+
+		// Replace the <pre> tag with the new admonition.
+		const parent = el.parentElement;
+		if (parent) {
+			parent.addClass(
+				"admonition-parent",
+				`admonition-${admonitionType}-parent`
+			);
+		}
+		el.replaceWith(theDiv);
+
+		return null;
+	}
+
+	/* Returns the filename, start time, and end time. If the end time was not set by the user, `Infinity` is returned. */
+	getAudioDataFromSrc(src: string): [string, number, number, boolean] {
+		const lines = src.split(/\r?\n/);
+		let first: string = lines[0];
+		const extendAudio = first.endsWith("!");
+		if (!src.includes("#")) {
+			return [src, 0, Infinity, extendAudio];
+		}
+		const [filename, timeInfo] = first.split("#");
+		const startAndEnd = timeInfo.slice(2, undefined);
+		let start = undefined;
+		let end = undefined;
+		if (startAndEnd.includes(",")) {
+			[start, end] = startAndEnd.split(",")
+			start = parseFloat(start);
+			end = parseFloat(end);
+		} else {
+			start = parseFloat(startAndEnd);
+			end = Infinity;
+		}
+		return [filename, start, end, extendAudio]
+	}
+
+	createAudioNoteDiv(audioNote: AudioNote, admonitionType: string, currentMdFilename: string, src: string, ctx?: MarkdownPostProcessorContext): HTMLElement {
+		// Create the audio div.
+		const basePath = (this.app.vault.adapter as any).basePath;
+		let audioSrcPath = `app://local/${basePath}/${audioNote.filename}#t=${audioNote.start}`;
+		if (audioNote.end !== Infinity) {
+			audioSrcPath += `,${audioNote.end}`;
+		}
+		// Below is an alternative way to create the audioDiv. Keep it for documentation.
+		// const audioDiv = createEl("audio", {});
+		// audioDiv.src = audioSrcPath;
+		// audioDiv.controls = true;
+		const audioDiv = createEl("audio", { attr: { controls: "", src: audioSrcPath } });
+		let markdownRenderChild = new MarkdownRenderChild(audioDiv);
+		markdownRenderChild.containerEl = audioDiv;
+		if (ctx && !(typeof ctx == "string")) {
+			ctx.addChild(markdownRenderChild);
+		}
+
+		// Create the quote div.
+		const color = "158, 158, 158"; // quote color, pulled from Admonition library
+		const admonitionLikeDiv = createDiv({
+			cls: `callout admonition admonition-${admonitionType} admonition-plugin ${""
+				}`,
+			attr: {
+				style: color ? `--callout-color: ${color};` : '',
+				"data-callout": admonitionType,
+				"data-callout-fold": ""
+			}
 		});
+		const titleEl = admonitionLikeDiv.createDiv({
+			cls: `callout-title admonition-title ${""
+				}`
+		});
+		const iconEl = titleEl.createDiv(
+			"callout-icon admonition-title-icon"
+		);
+		const icon = getIcon("quote-right");
+		if (icon !== undefined) {
+			iconEl.appendChild(icon);
+		}
+		this.renderAdmonitionContent(
+			admonitionLikeDiv,
+			audioNote.quote,
+			ctx,
+			currentMdFilename,
+			src,
+		);
 
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
+		// Put the divs in a main div and replace the user-created markdown element.
+		const theDiv = createDiv();
+		theDiv.appendChild(admonitionLikeDiv);
+		theDiv.appendChild(audioDiv);
+		return theDiv;
 	}
 
-	onunload() {
+	renderAdmonitionContent(
+		admonitionElement: HTMLElement,
+		content: string,
+		ctx: MarkdownPostProcessorContext | undefined,
+		sourcePath: string,
+		src: string
+	) {
+		let markdownRenderChild = new MarkdownRenderChild(admonitionElement);
+		markdownRenderChild.containerEl = admonitionElement;
+		if (ctx && !(typeof ctx == "string")) {
+			ctx.addChild(markdownRenderChild);
+		}
 
+		if (content && content?.trim().length) {
+			/**
+			 * Render the content as markdown and append it to the admonition.
+			 */
+
+			const contentEl: HTMLDivElement = admonitionElement.createDiv(
+				"callout-content admonition-content"
+			);
+			if (/^`{3,}mermaid/m.test(content)) {
+				const wasCollapsed = !admonitionElement.hasAttribute("open");
+				if (admonitionElement instanceof HTMLDetailsElement) {
+					admonitionElement.setAttribute("open", "open");
+				}
+				setImmediate(() => {
+					MarkdownRenderer.renderMarkdown(
+						content,
+						contentEl,
+						sourcePath,
+						markdownRenderChild
+					);
+					if (
+						admonitionElement instanceof HTMLDetailsElement &&
+						wasCollapsed
+					) {
+						admonitionElement.removeAttribute("open");
+					}
+				});
+			} else {
+				MarkdownRenderer.renderMarkdown(
+					content,
+					contentEl,
+					sourcePath,
+					markdownRenderChild
+				);
+			}
+
+			const taskLists = contentEl.querySelectorAll<HTMLInputElement>(
+				".task-list-item-checkbox"
+			);
+			if (taskLists?.length) {
+				const split = src.split("\n");
+				let slicer = 0;
+				taskLists.forEach((task) => {
+					const line = split
+						.slice(slicer)
+						.findIndex((l) => /^[ \t>]*\- \[.\]/.test(l));
+
+					if (line == -1) return;
+					task.dataset.line = `${line + slicer + 1}`;
+					slicer = line + slicer + 1;
+				});
+			}
+		}
 	}
 
-	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+	getAudioNoteBlocks(fileContents: string): AudioNoteWithPositionInfo[] {
+		const currentMdContentLines = fileContents.split(/\r?\n/);
+		// [startLineNumber, endLineNumber, endChNumber, srcLines]
+		const allAudioNoteCodeBlockStrings: ([number, number, number, string[]])[] = [];
+		let inAudioCodeBlock = false;
+		for (let i = 0; i < currentMdContentLines.length; i++) {
+			const line = currentMdContentLines[i];
+			if (inAudioCodeBlock) {
+				if (line.trim() === "```") {
+					inAudioCodeBlock = false;
+					allAudioNoteCodeBlockStrings[allAudioNoteCodeBlockStrings.length - 1][1] = i; // endLineNumber
+					allAudioNoteCodeBlockStrings[allAudioNoteCodeBlockStrings.length - 1][2] = currentMdContentLines[i - 1].length; // endChNumber
+				} else {
+					allAudioNoteCodeBlockStrings[allAudioNoteCodeBlockStrings.length - 1][3].push(line);
+				}
+			}
+			if (line.trim() === "```audio-note") {
+				allAudioNoteCodeBlockStrings.push([i, undefined as any, undefined as any, []]);
+				inAudioCodeBlock = true;
+			}
+		}
+
+		const allAudioNotes: AudioNoteWithPositionInfo[] = [];
+		for (const [startLineNumber, endLineNumber, endChNumber, lines] of allAudioNoteCodeBlockStrings) {
+			const audioNote = this.createAudioNoteFromSrc(lines.join("\n"));
+			allAudioNotes.push(AudioNoteWithPositionInfo.fromAudioNote(audioNote, startLineNumber, endLineNumber, endChNumber));
+		}
+
+		return allAudioNotes;
 	}
 
-	async saveSettings() {
-		await this.saveData(this.settings);
-	}
-}
-
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
-
-	onOpen() {
-		const {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
-
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
-	}
-}
-
-class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
-
-	constructor(app: App, plugin: MyPlugin) {
-		super(app, plugin);
-		this.plugin = plugin;
+	createAudioNoteFromSrc(src: string): AudioNote {
+		const lines = src.split(/\r?\n/);
+		const [filename, start, end, extendAudio] = this.getAudioDataFromSrc(src);
+		let validationLine = undefined;
+		if (lines.length > 1) {
+			validationLine = lines[1];
+		} else {
+			validationLine = undefined;
+		}
+		const quote = lines.slice(2, undefined).join("\n").trim();
+		const audioNote = new AudioNote(filename, start, end, validationLine, quote, extendAudio);
+		return audioNote;
 	}
 
-	display(): void {
-		const {containerEl} = this;
+	async rerenderAllAudioNotes(view: MarkdownView) {
+		// Load the transcript for the file.
+		// Look for the current markdown file at the same time.
+		const currentMdFilename = view.file.path;
+		const fileContents = await this.loadFiles([currentMdFilename]);
+		const currentMdFileContents = fileContents.get(currentMdFilename);
+		if (currentMdFileContents === undefined) {
+			console.error(`Could not find current .md: ${currentMdFilename}...? This should be impossible.`);
+			return undefined;
+		}
+		const audioNotes: AudioNoteWithPositionInfo[] = this.getAudioNoteBlocks(currentMdFileContents);
 
-		containerEl.empty();
+		const translationFilenames: string[] = [];
+		for (const audioNote of audioNotes) {
+			if (audioNote.needsToBeUpdated && !translationFilenames.includes(audioNote.transcriptFilename)) {
+				translationFilenames.push(audioNote.transcriptFilename);
+			}
+		}
+		const translationFilesContents = await this.loadFiles(translationFilenames);
 
-		containerEl.createEl('h2', {text: 'Settings for my awesome plugin.'});
+		for (const audioNote of audioNotes) {
+			if (audioNote.needsToBeUpdated) {
+				if (audioNote.quote.includes("`")) {
+					new Notice("Before the generation can be run, you must remove any audio notes that have the character ` in their quote.", 10000);
+					continue;
+				}
+				// Get the new quote.
+				const transcript = translationFilesContents.get(audioNote.transcriptFilename);
+				if (!transcript) {
+					console.error(`Could not find transcript: ${audioNote.transcriptFilename}`);
+					new Notice(`Could not find transcript: ${audioNote.transcriptFilename}`);
+					continue;
+				}
+				const [quoteStart, quoteEnd, newQuote] = this.getQuoteFromTranscript(audioNote, transcript);
 
-		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
-			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
-				.onChange(async (value) => {
-					console.log('Secret: ' + value);
-					this.plugin.settings.mySetting = value;
-					await this.plugin.saveSettings();
-				}));
+				// Update the view.editor.
+				if (audioNote.startLineNumber === undefined || audioNote.endLineNumber === undefined || audioNote.endChNumber === undefined) {
+					console.error(`Could not find line numbers of audio-note...? This should be impossible.`)
+					return undefined;
+				}
+				let start = audioNote.start;
+				let end = audioNote.end;
+				if (audioNote.extendAudio) {
+					start = quoteStart;
+					end = quoteEnd;
+				}
+				const startLine = audioNote.startLineNumber + 1;
+				const startCh = 0;
+				const endLine = audioNote.endLineNumber - 1;
+				const endCh = audioNote.endChNumber;
+				const srcStart = { line: startLine, ch: startCh };
+				const srcEnd = { line: endLine, ch: endCh };
+				const hasChangedLine = `[${start},${end}] - Do not modify`;
+				let extra = `\n`;
+				extra += `${hasChangedLine}\n`;
+				extra += `${newQuote}`;
+				let newSrc = `${audioNote.filename}#t=${start}`;
+				if (end !== Infinity) {
+					newSrc += `,${end}`;
+				}
+				view.editor.replaceRange(newSrc + extra, srcStart, srcEnd);
+			}
+		}
+
+		// Tell the user the generation is complete.
+		// new Notice('Audio Note generation complete!');
 	}
+
+	getQuoteFromTranscript(audioNote: AudioNote, transcriptContents: string): [number, number, string] {
+		// Get the relevant part of the transcript.
+		const transcript = JSON.parse(transcriptContents); // For now, use the file format defined by OpenAI Whisper
+		const segments = transcript.segments;
+		const result = [];
+		let start = undefined;
+		let end = undefined;
+		for (let segment of segments) {
+			const text = segment.text;
+			const segmentStart = segment.start;
+			const segmentEnd = segment.end;
+			// If either the segment's start or end is inside the range specified by the user...
+			if ((audioNote.start <= segmentStart && segmentStart < audioNote.end) || (audioNote.start < segmentEnd && segmentEnd <= audioNote.end)) {
+				result.push(text);
+				if (start === undefined) {
+					start = segmentStart;
+				}
+				end = segmentEnd;
+			}
+		}
+		const quoteText = result.join(" ").trim();
+		return [start, end, quoteText];
+	}
+
+	onunload() { }
 }
