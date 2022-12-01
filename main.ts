@@ -373,11 +373,15 @@ export default class AutomaticAudioNotes extends Plugin {
 					new Notice("Before the generation can be run, you must remove any audio notes that have the character ` in their quote.", 10000);
 					continue;
 				}
+				if (audioNote.start >= audioNote.end) {
+					new Notice("An audio note has a start time that is after the end time. Fix it!", 10000);
+					continue;
+				}
 				// Get the new quote.
 				const transcript = translationFilesContents.get(audioNote.transcriptFilename);
 				if (!transcript) {
 					console.error(`Could not find transcript: ${audioNote.transcriptFilename}`);
-					new Notice(`Could not find transcript: ${audioNote.transcriptFilename}`);
+					new Notice(`Could not find transcript: ${audioNote.transcriptFilename}`), 10000;
 					continue;
 				}
 				const [quoteStart, quoteEnd, newQuote] = this.getQuoteFromTranscript(audioNote, transcript);
