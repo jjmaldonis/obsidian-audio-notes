@@ -55,16 +55,37 @@ The following python script will perform speech recognition on your audio file a
 import whisper
 import json
 
+# Set the following information to perform speech recognition:
 model_name = "small.en"  # See https://github.com/openai/whisper for other options
 audio_filename = r"<path-to-audio-file-in-your-vault>.mp3"
+start: float = None  # (optional) Set to the # of seconds to start at
+end: float = None  # (optional) Set to the # of seconds to end at
 
 # Load the model. It may be multiple GBs.
 model = whisper.load_model(model_name)
 
+# Load the audio file and trim it if desired
+audio = whisper.load_audio(audio_filename)
+samples_per_second = 16_000
+if end is not None:
+    audio = audio[:int(end * samples_per_second)]
+if start is not None:
+    audio = audio[int(start * samples_per_second):]
+
 # Generate the transcript. This may take a long time.
-result = model.transcribe(audio_filename, verbose=False)
+result = model.transcribe(audio, verbose=False)
 
 # Save the transript to a .json file with the same name as the audio file.
+for segment in result["segments"]:
+    del segment["id"]
+    del segment["seek"]
+    del segment["tokens"]
+    del segment["temperature"]
+    del segment["avg_logprob"]
+    del segment["compression_ratio"]
+    del segment["no_speech_prob"]
+    segment["start"] += start
+    segment["end"] += start
 output_filename = ".".join(audio_filename.split(".")[:-1]) + ".json"
 with open(output_filename, "w") as f:
     json.dump(result, f)
