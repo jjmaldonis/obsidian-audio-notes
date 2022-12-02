@@ -37,6 +37,7 @@ If your plugin does not need CSS, delete this file.
     margin-bottom: 0px;
 }
 
-.audio-note .audio-note-author {
+.audio-note .audio-note-author p {
     margin-top: 4px;
+    margin-bottom: 0px;
 }

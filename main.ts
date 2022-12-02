@@ -300,7 +300,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		}
 		const formattedTitle = audioNote.getFormattedTitle();
 		const titleInnerEl = titleEl.createDiv("audio-note-title-inner admonition-title-content");
-		MarkdownRenderer.renderMarkdown(formattedTitle, titleInnerEl, "", null);
+		this.renderMarkdown(titleEl, titleInnerEl, currentMdFilename, undefined, formattedTitle);
 		if (titleInnerEl.firstElementChild && titleInnerEl.firstElementChild instanceof HTMLParagraphElement) {
 			titleInnerEl.setChildrenInPlace(Array.from(titleInnerEl.firstElementChild.childNodes));
 		}
@@ -320,9 +320,9 @@ export default class AutomaticAudioNotes extends Plugin {
 			if (authorStr.startsWith("-")) {
 				authorStr = `\\${authorStr}`; // prepend a \ to escape the - so it does turn into a bullet point when the HTML renders
 			}
-			const authorInnerEl = authorEl.createDiv();
-			MarkdownRenderer.renderMarkdown(authorStr, authorInnerEl, "", null);
-			if (authorInnerEl.firstElementChild && authorInnerEl.firstElementChild instanceof HTMLParagraphElement) {
+			const authorInnerEl = authorEl.createDiv("audio-note-author");
+			this.renderMarkdown(authorEl, authorInnerEl, currentMdFilename, undefined, authorStr);
+			if (authorInnerEl.firstElementChild) {
 				authorInnerEl.setChildrenInPlace(Array.from(authorInnerEl.firstElementChild.childNodes));
 			}
 		}
@@ -348,7 +348,9 @@ export default class AutomaticAudioNotes extends Plugin {
 	}
 
 	renderMarkdown(parent: HTMLElement, obj: HTMLElement, sourcePath: string, ctx: MarkdownPostProcessorContext | undefined, withText: string): void {
+		console.log(ctx);
 		const markdownRenderChild = this.createMarkdownRenderChildWithCtx(obj, ctx);
+		console.log(markdownRenderChild);
 		MarkdownRenderer.renderMarkdown(withText, parent, sourcePath, markdownRenderChild);
 	}
 
