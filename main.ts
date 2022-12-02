@@ -348,9 +348,7 @@ export default class AutomaticAudioNotes extends Plugin {
 	}
 
 	renderMarkdown(parent: HTMLElement, obj: HTMLElement, sourcePath: string, ctx: MarkdownPostProcessorContext | undefined, withText: string): void {
-		console.log(ctx);
 		const markdownRenderChild = this.createMarkdownRenderChildWithCtx(obj, ctx);
-		console.log(markdownRenderChild);
 		MarkdownRenderer.renderMarkdown(withText, parent, sourcePath, markdownRenderChild);
 	}
 
