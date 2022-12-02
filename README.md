@@ -1,73 +1,72 @@
-# Obsidian Sample Plugin
+# Obsidian Audio Notes
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+## Overview
 
-This project uses Typescript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in Typescript Definition format, which contains TSDoc comments describing what it does.
+<strong>Audio Notes</strong> is a plugin for the note-taking app Obsidian. It helps you create notes for audio files.
 
-**Note:** The Obsidian API is still in early alpha and is subject to change at any time!
+Here an example of an audio note:
+![](assets/renderedNote.png)
+Audio notes have a title, the quote in the audio, and an audio player to replay the audio.
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
-- Changes the default font color to red using `styles.css`.
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open Sample Modal" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+Audio notes can be created using an [Admonition](https://github.com/valentine195/obsidian-admonition)-like code block:
+![](assets/unrenderedNote.png)
 
-## First time developing plugins?
+The following information can be set:
+```audio-note
+audio: ...
+title: ...
+transcript: ...
+author: ...
+---
+<your quote>
+```
 
-Quick starting guide for new plugin devs:
+* `audio`: (required) The audio filename. It can be a local file or a link to an audio file online.
+  * You can add `#t=<start>,<end>` to the end of the filename to set the start and end time of the quote. For example, you can add `t=1:20,130`. If you do not want to set an end time, you can simply use `t=1:20`.
+* `title`: (optional) The title of your note.
+* `transcript`: (optional) The filename of the transcript. See below for details.
+* `author`: (optional) The text to be used as the author of the quote.
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+### The Admonition Plugin is Required for Styling
 
-## Releasing new releases
+In order to apply the property styling, you must also have the [Admonition](https://github.com/valentine195/obsidian-admonition) plugin installed.
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
+## Generating Quotes using Automatically
 
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
+<strong>Audio Notes</strong> can also automatically insert the text in the audio if a transcript for the audio is available (see below).
 
-## Adding your plugin to the community plugin list
+If you run the command (Ctrl+P) `Generate Audio Notes`, the plugin will find the relevant text in the transcript and automatically insert the text in the note.
 
-- Check https://github.com/obsidianmd/obsidian-releases/blob/master/plugin-review.md
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
+The `audio-note` code block will not be overwritten if a quote for the note already exists. This allows you to make any text/formatting updates to the quote without it being overwritten. If you want the quote to be overwritten, delete it before running `Generate Audio Notes`.
 
-## How to use
+![](assets/example.gif)
 
-- Clone this repo.
-- `npm i` or `yarn` to install dependencies
-- `npm run dev` to start compilation in watch mode.
+You can add an exclamation point `!` to the end of the `audio` filename (after `#t=<start>,<end>`) to automatically adjust the start and end times of the audio to match the generated quote. This can be useful if you don't know the exact start and end times.
+## Generating a Transcript
 
-## Manually installing the plugin
+If you have an audio file on your computer, you can use [OpenAI Whisper](https://github.com/openai/whisper) to generate a transcript. At the time of writing this plugin, OpenAI Whisper is the state-of-the-art speech recognition package.
 
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
+You can easily run OpenAI Whisper using Python 3.9.9. Install it using `pip install git+https://github.com/openai/whisper.git`.
 
-## Improve code quality with eslint (optional)
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code. 
-- To use eslint with this project, make sure to install eslint from terminal:
-  - `npm install -g eslint`
-- To use eslint to analyze this project use this command:
-  - `eslint main.ts`
-  - eslint will then create a report with suggestions for code improvement by file and line number.
-- If your source code is in a folder, such as `src`, you can use eslint with this command to analyze all files in that folder:
-  - `eslint .\src\`
+The following python script will perform speech recognition on your audio file and save the transcript to your vault. Once the transript is in your vault, the Audio Notes plugin can use it to generate text automatically.
 
+```
+import whisper
+import json
 
-## API Documentation
+model_name = "small.en"  # See https://github.com/openai/whisper for other options
+audio_filename = r"<path-to-audio-file-in-your-vault>.mp3"
 
-See https://github.com/obsidianmd/obsidian-api
+# Load the model. It may be multiple GBs.
+model = whisper.load_model(model_name)
+
+# Generate the transcript. This may take a long time.
+result = model.transcribe(audio_filename, verbose=False)
+
+# Save the transript to a .json file with the same name as the audio file.
+output_filename = ".".join(audio_filename.split(".")[:-1]) + ".json"
+with open(output_filename, "w") as f:
+    json.dump(result, f)
+
+print("Done!")
+```
