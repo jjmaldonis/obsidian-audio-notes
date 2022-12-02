@@ -6,6 +6,7 @@
 
 Here an example of an audio note:
 ![](assets/renderedNote.png)
+
 Audio notes have a title, the quote in the audio, and an audio player to replay the audio.
 
 Audio notes can be created using an [Admonition](https://github.com/valentine195/obsidian-admonition)-like code block:
