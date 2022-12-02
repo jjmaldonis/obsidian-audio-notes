@@ -340,7 +340,11 @@ export default class AutomaticAudioNotes extends Plugin {
 		// const audioDiv = createEl("audio", {});
 		// audioDiv.src = audioSrcPath;
 		// audioDiv.controls = true;
-		const audioDiv = createEl("audio", { attr: { controls: "", src: audioSrcPath } });
+		const audioDiv = createEl("audio", { attr: {
+			controls: "",
+			src: audioSrcPath,
+			type: "audio/mpeg",
+		} });
 		admonitionLikeDiv.appendChild(audioDiv);
 		this.renderMarkdown(admonitionLikeDiv, audioDiv, currentMdFilename, ctx, "");
 
