@@ -327,7 +327,10 @@ export default class AutomaticAudioNotes extends Plugin {
 
 		// Create the audio div.
 		const basePath = (this.app.vault.adapter as any).basePath;
-		let audioSrcPath = `app://local/${basePath}/${audioNote.audioFilename}#t=${secondsToTimeString(audioNote.start)}`;
+		let audioSrcPath = `${audioNote.audioFilename}#t=${secondsToTimeString(audioNote.start)}`;
+		if (!audioNote.audioFilename.startsWith("https://")) {
+			audioSrcPath = `app://local/${basePath}/${audioSrcPath}`;
+		}
 		if (audioNote.end !== Infinity) {
 			audioSrcPath += `,${secondsToTimeString(audioNote.end)}`;
 		}
