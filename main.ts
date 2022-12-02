@@ -5,6 +5,7 @@ import {
 	MarkdownRenderer,
 	MarkdownRenderChild,
 	Notice,
+	TFile,
 } from 'obsidian';
 import { IconPrefix } from "@fortawesome/free-regular-svg-icons";
 import type { IconName } from "@fortawesome/fontawesome-svg-core";
@@ -186,13 +187,14 @@ export default class AutomaticAudioNotes extends Plugin {
 		this.addCommand({
 			id: 'generate-audio-notes',
 			name: 'Generate Audio Notes',
-			checkCallback: (checking: boolean) => {
+			editorCheckCallback: (checking: boolean) => {
 				// Conditions to check
 				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
 				if (markdownView) {
 					// If checking is true, we're simply "checking" if the command can be run.
 					// If checking is false, then we want to actually perform the operation.
 					if (!checking) {
+						// Note: `.cache` is required (rather than `await ...`) due to the type required by `editorCheckCallback`.
 						this.rerenderAllAudioNotes(markdownView).catch((error) => {
 							new Notice("Could not generate audio notes.", 10000)
 						});
@@ -212,9 +214,9 @@ export default class AutomaticAudioNotes extends Plugin {
 
 	async loadFiles(filenames: string[]): Promise<Map<string, string>> {
 		const results = new Map<string, string>();
-		const allFiles = this.app.vault.getFiles();
 		for (const filename of filenames) {
-			for (const f of allFiles) {
+			const f = this.app.vault.getAbstractFileByPath(filename);
+			if (f instanceof TFile) {
 				const contents = await this.app.vault.cachedRead(f);
 				if (f.path === filename) {
 					results.set(filename, contents);
@@ -326,7 +328,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		}
 
 		// Create the audio div.
-		const basePath = (this.app.vault.adapter as any).basePath;
+		const basePath = (this.app.vault.adapter as any).basePath; // the basePath is required by the <audio> tag for some reason :(
 		let audioSrcPath = `${audioNote.audioFilename}#t=${secondsToTimeString(audioNote.start)}`;
 		if (!audioNote.audioFilename.startsWith("https://")) {
 			audioSrcPath = `app://local/${basePath}/${audioSrcPath}`;
