@@ -132,13 +132,13 @@ class AudioNote {
 
 		let titleStr = "";
 		if (this.title) {
-			titleStr = "<strong>" + this.title + "</strong>: ";
+			titleStr = this.title;
 		}
 		let result;
 		if (viewableStartTime === undefined) {
 			result = `&nbsp&nbsp${titleStr}`;
 		} else {
-			result = `&nbsp&nbsp${titleStr}${viewableStartTime} - ${viewableEndTime}`;
+			result = `&nbsp&nbsp${titleStr}: ${viewableStartTime} - ${viewableEndTime}`;
 		}
 		return result;
 	}
@@ -381,7 +381,8 @@ export default class AutomaticAudioNotes extends Plugin {
 		const allAudioNotes: AudioNoteWithPositionInfo[] = [];
 		for (const [startLineNumber, endLineNumber, endChNumber, lines] of allAudioNoteCodeBlockStrings) {
 			const audioNote = this.createAudioNoteFromSrc(lines.join("\n"));
-			allAudioNotes.push(AudioNoteWithPositionInfo.fromAudioNote(audioNote, startLineNumber, endLineNumber, endChNumber));
+			const audioNoteWithPositionInfo = AudioNoteWithPositionInfo.fromAudioNote(audioNote, startLineNumber, endLineNumber, endChNumber);
+			allAudioNotes.push(audioNoteWithPositionInfo);
 		}
 
 		return allAudioNotes;
