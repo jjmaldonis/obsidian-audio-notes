@@ -313,7 +313,7 @@ export default class AutomaticAudioNotes extends Plugin {
 
 		// Add the author to the div.
 		if (audioNote.author) {
-			const authorEl = admonitionLikeDiv.createDiv({cls: "audio-note-author"});
+			const authorEl = admonitionLikeDiv.createDiv({ cls: "audio-note-author" });
 			let authorStr = audioNote.author;
 			if (authorStr.startsWith("-")) {
 				authorStr = `\\${authorStr}`; // prepend a \ to escape the - so it does turn into a bullet point when the HTML renders
@@ -495,7 +495,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		// Load the transcripts.
 		const translationFilenames: string[] = [];
 		for (const audioNote of audioNotes) {
-			if (!audioNote.transcriptFilename){
+			if (!audioNote.transcriptFilename) {
 				continue;
 			}
 			if (audioNote.needsToBeUpdated && !translationFilenames.includes(audioNote.transcriptFilename)) {
@@ -506,7 +506,7 @@ export default class AutomaticAudioNotes extends Plugin {
 
 		for (const audioNote of audioNotes) {
 			if (audioNote.needsToBeUpdated) {
-				if (!audioNote.transcriptFilename){
+				if (!audioNote.transcriptFilename) {
 					new Notice("No transcript file defined for audio note.", 10000);
 					continue;
 				}
