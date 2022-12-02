@@ -6,3 +6,37 @@ available in the app when your plugin is enabled.
 If your plugin does not need CSS, delete this file.
 
 */
+
+.audio-note audio {
+    margin-top: 16px;
+}
+
+.audio-note .audio-note-title {
+    padding: var(--callout-title-padding);
+    display: flex;
+    gap: var(--size-4-1);
+    font-size: var(--callout-title-size);
+    color: rgb(var(--callout-color));
+    line-height: var(--line-height-tight);
+    margin-bottom: 0px;
+}
+
+.audio-note .audio-note-title .audio-note-icon {
+    flex: 0 0 auto;
+    display: flex;
+    align-self: center;
+}
+
+.audio-note .audio-note-title .audio-note-title-inner {
+    font-weight: var(--bold-weight);
+    color: var(--callout-title-color);
+}
+
+.audio-note p {
+    margin-top: 16px;
+    margin-bottom: 0px;
+}
+
+.audio-note .audio-note-author {
+    margin-top: 4px;
+}
