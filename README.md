@@ -84,8 +84,9 @@ for segment in result["segments"]:
     del segment["avg_logprob"]
     del segment["compression_ratio"]
     del segment["no_speech_prob"]
-    segment["start"] += start
-    segment["end"] += start
+    if start is not None:
+        segment["start"] += start
+        segment["end"] += start
 output_filename = ".".join(audio_filename.split(".")[:-1]) + ".json"
 with open(output_filename, "w") as f:
     json.dump(result, f)
