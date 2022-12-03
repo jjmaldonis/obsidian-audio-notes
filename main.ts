@@ -6,6 +6,7 @@ import {
 	MarkdownRenderChild,
 	Notice,
 	TFile,
+	Platform,
 } from 'obsidian';
 import { IconPrefix } from "@fortawesome/free-regular-svg-icons";
 import type { IconName } from "@fortawesome/fontawesome-svg-core";
@@ -328,25 +329,33 @@ export default class AutomaticAudioNotes extends Plugin {
 		}
 
 		// Create the audio div.
-		const basePath = (this.app.vault.adapter as any).basePath; // the basePath is required by the <audio> tag for some reason :(
-		let audioSrcPath = `${audioNote.audioFilename}#t=${secondsToTimeString(audioNote.start)}`;
-		if (!audioNote.audioFilename.startsWith("https://") && !audioNote.audioFilename.startsWith("/")) {
-			audioSrcPath = `app://local/${basePath}/${audioSrcPath}`;
-		}
-		if (audioNote.end !== Infinity) {
-			audioSrcPath += `,${secondsToTimeString(audioNote.end)}`;
-		}
 		// Below is an alternative way to create the audioDiv. Keep it for documentation.
 		// const audioDiv = createEl("audio", {});
 		// audioDiv.src = audioSrcPath;
 		// audioDiv.controls = true;
-		const audioDiv = createEl("audio", { attr: {
-			controls: "",
-			src: audioSrcPath,
-			type: "audio/mpeg",
-		} });
-		admonitionLikeDiv.appendChild(audioDiv);
-		this.renderMarkdown(admonitionLikeDiv, audioDiv, currentMdFilename, ctx, "");
+		let audioDiv = undefined;
+		if (Platform.isDesktop || Platform.isDesktopApp || Platform.isMacOS || Platform.isSafari) {
+			const basePath = (this.app.vault.adapter as any).basePath; // the basePath is required by the <audio> tag for some reason :(
+			let audioSrcPath = `${audioNote.audioFilename}#t=${secondsToTimeString(audioNote.start)}`;
+			if (!audioNote.audioFilename.startsWith("https://")) {
+				audioSrcPath = `app://local/${basePath}/${audioSrcPath}`;
+			}
+			if (audioNote.end !== Infinity) {
+				audioSrcPath += `,${secondsToTimeString(audioNote.end)}`;
+			}
+
+			audioDiv = createEl("audio", { attr: {
+				controls: "",
+				src: audioSrcPath,
+				type: "audio/mpeg",
+			} });
+			admonitionLikeDiv.appendChild(audioDiv);
+			this.renderMarkdown(admonitionLikeDiv, audioDiv, currentMdFilename, ctx, ``);
+		} else {
+			audioDiv = createEl("div");
+			admonitionLikeDiv.appendChild(audioDiv);
+			this.renderMarkdown(admonitionLikeDiv, audioDiv, currentMdFilename, ctx, `![](${audioNote.audioFilename})`);
+		}
 
 		return admonitionLikeDiv;
 	}
