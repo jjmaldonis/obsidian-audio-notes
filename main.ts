@@ -934,10 +934,6 @@ export default class AutomaticAudioNotes extends Plugin {
 	}
 
 	createAudioNoteSrc(audioNote: AudioNote, transcript: string | undefined, view: MarkdownView): string | undefined {
-		if (!audioNote.transcriptFilename) {
-			new Notice("No transcript file defined for audio note.", 10000);
-			return undefined;
-		}
 		if (audioNote.quote && audioNote.quote.includes("`")) {
 			new Notice("Before the generation can be run, you must remove any audio notes that have the character ` in their quote.", 10000);
 			return undefined;
@@ -950,7 +946,6 @@ export default class AutomaticAudioNotes extends Plugin {
 		if (!transcript) {
 			console.error(`Could not find transcript: ${audioNote.transcriptFilename}`);
 			new Notice(`Could not find transcript: ${audioNote.transcriptFilename}`), 10000;
-			return undefined;
 		}
 
 		const sourceView = view.contentEl.querySelector(".markdown-source-view");
@@ -962,10 +957,15 @@ export default class AutomaticAudioNotes extends Plugin {
 
 		let start = audioNote.start;
 		let end = audioNote.end;
-		const [quoteStart, quoteEnd, newQuote] = this._getQuoteFromTranscript(start, end, transcript);
-		if (audioNote.extendAudio) {
-			start = quoteStart;
-			end = quoteEnd;
+		let newQuote = "";
+		if (transcript) {
+			let quoteStart = undefined;
+			let quoteEnd = undefined;
+			[quoteStart, quoteEnd, newQuote] = this._getQuoteFromTranscript(start, end, transcript);
+			if (audioNote.extendAudio) {
+				start = quoteStart;
+				end = quoteEnd;
+			}
 		}
 
 		// Create the new audio note text.
@@ -1041,12 +1041,11 @@ export default class AutomaticAudioNotes extends Plugin {
 	}
 
 	async createNewAudioNoteAtEndOfFile(view: MarkdownView, audioNote: AudioNote): Promise<void> {
-		if (!audioNote.transcriptFilename) {
-			new Notice("No transcript file defined for audio note.", 10000);
-			return undefined;
+		let transcript: string | undefined = undefined;
+		if (audioNote.transcriptFilename !== undefined) {
+			const translationFilesContents = await this.loadFiles([audioNote.transcriptFilename]);
+			transcript = translationFilesContents.get(audioNote.transcriptFilename);
 		}
-		const translationFilesContents = await this.loadFiles([audioNote.transcriptFilename]);
-		const transcript = translationFilesContents.get(audioNote.transcriptFilename);
 
 		const newAudioNoteSrc = this.createAudioNoteSrc(audioNote, transcript, view);
 		if (newAudioNoteSrc) {
