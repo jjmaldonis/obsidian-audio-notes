@@ -535,6 +535,9 @@ export default class AutomaticAudioNotes extends Plugin {
 		resetTimeButton.addEventListener('click', () => {
 			if (!audio.paused) {
 				audio.pause();
+				if (playIcon !== undefined && pauseIcon !== undefined) {
+					pauseIcon.parentNode?.replaceChild(playIcon, pauseIcon);
+				}
 			}
 			audio.currentTime = audioNote.start;
 			updateTime(timeSpan, seeker, audio);
