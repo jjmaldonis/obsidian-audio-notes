@@ -370,36 +370,24 @@ export default class AutomaticAudioNotes extends Plugin {
 		}
 
 		// Create the audio div.
-		// Below is an alternative way to create the audioDiv. Keep it for documentation.
-		// const audioDiv = createEl("audio", {});
-		// audioDiv.src = audioSrcPath;
-		// audioDiv.controls = true;
-		let audioDiv = undefined;
-		if (Platform.isDesktop || Platform.isDesktopApp || Platform.isMacOS || Platform.isSafari) {
-			const basePath = (this.app.vault.adapter as any).basePath; // the basePath is required by the <audio> tag for some reason :(
-			let audioSrcPath = `${audioNote.audioFilename}#t=${secondsToTimeString(audioNote.start, false)}`;
-			if (!audioNote.audioFilename.startsWith("https://")) {
-				audioSrcPath = `app://local/${basePath}/${audioSrcPath}`;
-			}
-			if (audioNote.end !== Infinity) {
-				audioSrcPath += `,${secondsToTimeString(audioNote.end, false)}`;
-			}
-
-			/*audioDiv = createEl("audio", {
-				attr: {
-					controls: "",
-					src: audioSrcPath,
-					type: "audio/mpeg",
-				}
-			});*/
-			audioDiv = this.createAudioDiv(audioSrcPath, audioNote);
-			admonitionLikeDiv.appendChild(audioDiv);
-			this.renderMarkdown(admonitionLikeDiv, audioDiv, currentMdFilename, ctx, ``);
-		} else {
-			audioDiv = createEl("div");
-			admonitionLikeDiv.appendChild(audioDiv);
-			this.renderMarkdown(admonitionLikeDiv, audioDiv, currentMdFilename, ctx, `![](${audioNote.audioFilename})`);
+		let audioSrcPath: string | undefined = undefined;
+		const tfile = this.app.vault.getAbstractFileByPath(audioNote.audioFilename);
+		if (!tfile) {
+			console.error(`Could not find audio file: ${audioNote.audioFilename}`)
+			return admonitionLikeDiv;
 		}
+		audioSrcPath = this.app.vault.getResourcePath(tfile as TFile);
+		if (audioSrcPath.includes("?")) {
+			audioSrcPath = audioSrcPath.slice(0, audioSrcPath.indexOf("?"));
+		}
+		audioSrcPath += `#t=${secondsToTimeString(audioNote.start, false)}`;
+		if (audioNote.end !== Infinity) {
+			audioSrcPath += `,${secondsToTimeString(audioNote.end, false)}`;
+		}
+
+		const audioDiv = this.createAudioDiv(audioSrcPath, audioNote);
+		admonitionLikeDiv.appendChild(audioDiv);
+		this.renderMarkdown(admonitionLikeDiv, audioDiv, currentMdFilename, ctx, ``);
 
 		return admonitionLikeDiv;
 	}
@@ -820,7 +808,6 @@ export default class AutomaticAudioNotes extends Plugin {
 			const audios: HTMLMediaElement[] = sourceView.findAll("audio") as HTMLMediaElement[];
 			if (audios.length !== 1) {
 				console.error(`There can only be one audio note in the file when running this command. Found ${audios.length}.`);
-				console.log(audios);
 				new Notice(`There can only be one audio note in the file when running this command. Found ${audios.length}.`), 10000;
 				return;
 			}
