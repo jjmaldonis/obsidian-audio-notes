@@ -53,12 +53,10 @@ function secondsToTimeString(totalSeconds: number, truncateMilliseconds: boolean
 			s += "0" + hours.toString() + ":";
 		}
 	}
-	if (minutes > 0 || hours > 0) {
-		if (minutes >= 10) {
-			s += minutes.toString() + ":";
-		} else {
-			s += "0" + minutes.toString() + ":";
-		}
+	if (minutes >= 10) {
+		s += minutes.toString() + ":";
+	} else {
+		s += "0" + minutes.toString() + ":";
 	}
 	seconds = Math.round(seconds * 100) / 100; // round to 2 decimal places
 	if (seconds >= 10) {
