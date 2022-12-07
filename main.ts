@@ -1146,7 +1146,7 @@ export default class AutomaticAudioNotes extends Plugin {
 
 		const newAudioNoteSrc = this.createAudioNoteSrc(audioNote, transcript, view);
 		if (newAudioNoteSrc) {
-			this.app.vault.append(view.file, "```audio-note\n" + newAudioNoteSrc + "\n```\n");
+			this.app.vault.append(view.file, "\n```audio-note\n" + newAudioNoteSrc + "\n```\n");
 			new Notice("Created new audio note", 3000);
 		}
 		return undefined;
