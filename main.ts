@@ -451,8 +451,6 @@ export default class AutomaticAudioNotes extends Plugin {
 
 		// Event handlers
 
-		const audioPlayerContainer = createDiv({ attr: { id: `audio-player-container-${fakeUuid}` }, cls: "audio-player-container" })
-
 		const togglePlayback = () => {
 			if (audio.paused) {
 				audio.play();
@@ -591,16 +589,33 @@ export default class AutomaticAudioNotes extends Plugin {
 		resetTimeButton.onkeydown = overrideSpaceKey;
 
 		// Create the container div.
-		audioPlayerContainer.appendChild(audio);
-		audioPlayerContainer.appendChild(playButton);
-		audioPlayerContainer.appendChild(seeker);
-		audioPlayerContainer.appendChild(timeSpan);
-		audioPlayerContainer.appendChild(backwardButton);
-		audioPlayerContainer.appendChild(forwardButton);
-		audioPlayerContainer.appendChild(resetTimeButton);
-		audioPlayerContainer.appendChild(muteButton);
-		// audioPlayerContainer.appendChild(volumeSlider);
-		return audioPlayerContainer;
+		if (Platform.isDesktop || Platform.isDesktopApp || Platform.isMacOS) { // desktop
+			const audioPlayerContainer = createDiv({ attr: { id: `audio-player-container-${fakeUuid}` }, cls: "audio-player-container" })
+			audioPlayerContainer.appendChild(audio);
+			audioPlayerContainer.appendChild(playButton);
+			audioPlayerContainer.appendChild(seeker);
+			audioPlayerContainer.appendChild(timeSpan);
+			audioPlayerContainer.appendChild(backwardButton);
+			audioPlayerContainer.appendChild(forwardButton);
+			audioPlayerContainer.appendChild(resetTimeButton);
+			audioPlayerContainer.appendChild(muteButton);
+			return audioPlayerContainer;
+		} else { // mobile
+			const audioPlayerContainer = createDiv({ attr: { id: `audio-player-container-${fakeUuid}` }, cls: "audio-player-container-mobile" })
+			const topDiv = createDiv({cls: "audio-player-container-top"});
+			const bottomDiv = createDiv({cls: "audio-player-container-bottom"});
+			topDiv.appendChild(audio);
+			topDiv.appendChild(playButton);
+			topDiv.appendChild(seeker);
+			bottomDiv.appendChild(timeSpan);
+			bottomDiv.appendChild(backwardButton);
+			bottomDiv.appendChild(forwardButton);
+			bottomDiv.appendChild(resetTimeButton);
+			topDiv.appendChild(muteButton);
+			audioPlayerContainer.appendChild(topDiv);
+			audioPlayerContainer.appendChild(bottomDiv);
+			return audioPlayerContainer;
+		}
 	}
 
 	renderMarkdown(parent: HTMLElement, obj: HTMLElement, sourcePath: string, ctx: MarkdownPostProcessorContext | undefined, withText: string): void {

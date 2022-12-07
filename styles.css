@@ -99,11 +99,11 @@ If your plugin does not need CSS, delete this file.
 
 .audio-player-container {
     display: flex;
+    align-items: center;
     margin-top: 16px;
     margin-bottom: 4px;
     margin-left: 8px;
     margin-right: 8px;
-    align-items: center;
     --seek-before-width: 0%;
     --volume-before-width: 100%;
     --buffered-width: 0%;
@@ -111,6 +111,35 @@ If your plugin does not need CSS, delete this file.
     width: calc(100% - 8px - 8px);
     border: solid 1px rgba(255, 255, 255, 0.15);
     border-radius: 12px;
+}
+
+.audio-player-container-mobile {
+    display: block;
+    margin-top: 16px;
+    margin-bottom: 4px;
+    margin-left: 8px;
+    margin-right: 8px;
+    --seek-before-width: 0%;
+    --volume-before-width: 100%;
+    --buffered-width: 0%;
+    position: relative;
+    width: calc(100% - 8px - 8px);
+    height: fit-content;
+    border: solid 1px rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+}
+
+.audio-player-container-top {
+    display: flex;
+    align-items: center;
+}
+
+.audio-player-container-bottom {
+    display: flex;
+    align-items: center;
+    width: fit-content;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .seek-slider {
