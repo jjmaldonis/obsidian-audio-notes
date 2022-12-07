@@ -16,8 +16,19 @@ import {
 } from "@fortawesome/fontawesome-svg-core";
 
 
+function generateRandomString(length: number) {
+	let result = '';
+	const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+	const charactersLength = characters.length;
+	for (var i = 0; i < length; i++) {
+		result += characters.charAt(Math.floor(Math.random() * charactersLength));
+	}
+	return result;
+}
+
+
 function getIcon(iconName: string) {
-	for (const prefix of ["fas", "far", "fab"] as IconPrefix[]) {
+	for (const prefix of ["fas", "far", "fab", "fa"] as IconPrefix[]) {
 		const definition = findIconDefinition({
 			iconName: iconName as IconName,
 			prefix
@@ -27,7 +38,10 @@ function getIcon(iconName: string) {
 }
 
 
-function secondsToTimeString(totalSeconds: number): string {
+function secondsToTimeString(totalSeconds: number, truncateMilliseconds: boolean): string {
+	if (totalSeconds === 0) {
+		return "00:00";
+	}
 	let hours = Math.floor(totalSeconds / 3600);
 	let minutes = Math.floor((totalSeconds / 60 - (hours * 60)));
 	let seconds = totalSeconds - (hours * 3600 + minutes * 60);
@@ -54,6 +68,9 @@ function secondsToTimeString(totalSeconds: number): string {
 	}
 	if (Number.isNaN(hours) || Number.isNaN(minutes) || Number.isNaN(seconds) || hours === undefined || minutes === undefined || seconds === undefined) {
 		throw new Error(`Failed to convert seconds to time string: ${totalSeconds}`);
+	}
+	if (truncateMilliseconds && s.includes(".")) {
+		s = s.slice(0, s.indexOf("."));
 	}
 	return s;
 }
@@ -113,18 +130,18 @@ class AudioNote {
 		let viewableEndTime = undefined;
 
 		if (this.end !== Infinity) {
-			viewableStartTime = secondsToTimeString(Math.round(this.start));
+			viewableStartTime = secondsToTimeString(Math.round(this.start), false);
 			if (viewableStartTime.startsWith("0")) {
 				viewableStartTime = viewableStartTime.slice(1, undefined);
 			}
 
-			viewableEndTime = secondsToTimeString(Math.round(this.end));
+			viewableEndTime = secondsToTimeString(Math.round(this.end), false);
 			if (viewableEndTime.startsWith("0")) {
 				viewableEndTime = viewableEndTime.slice(1, undefined);
 			}
 		} else {
 			if (this.start !== 0) {
-				viewableStartTime = secondsToTimeString(Math.round(this.start));
+				viewableStartTime = secondsToTimeString(Math.round(this.start), false);
 				if (viewableStartTime.startsWith("0")) {
 					viewableStartTime = viewableStartTime.slice(1, undefined);
 				}
@@ -188,7 +205,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		this.addCommand({
 			id: 'generate-audio-notes',
 			name: 'Generate Audio Notes',
-			editorCheckCallback: (checking: boolean) => {
+			checkCallback: (checking: boolean) => {
 				// Conditions to check
 				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
 				if (markdownView) {
@@ -196,7 +213,7 @@ export default class AutomaticAudioNotes extends Plugin {
 					// If checking is false, then we want to actually perform the operation.
 					if (!checking) {
 						// Note: `.cache` is required (rather than `await ...`) due to the type required by `editorCheckCallback`.
-						this.rerenderAllAudioNotes(markdownView).catch((error) => {
+						this.rerenderAllAudioNotes(markdownView, false).catch((error) => {
 							new Notice("Could not generate audio notes.", 10000)
 						});
 					}
@@ -206,6 +223,30 @@ export default class AutomaticAudioNotes extends Plugin {
 				}
 			}
 		});
+
+		// This adds a complex command that can check whether the current state of the app allows execution of the command
+		this.addCommand({
+			id: 'generate-audio-note',
+			name: 'Generate Audio Note based on current time +/- 30 seconds',
+			checkCallback: (checking: boolean) => {
+				// Conditions to check
+				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+				if (markdownView) {
+					// If checking is true, we're simply "checking" if the command can be run.
+					// If checking is false, then we want to actually perform the operation.
+					if (!checking) {
+						// Note: `.cache` is required (rather than `await ...`) due to the type required by `editorCheckCallback`.
+						this.rerenderAllAudioNotes(markdownView, true).catch((error) => {
+							new Notice("Could not generate audio notes.", 10000)
+						});
+					}
+
+					// This command will only show up in Command Palette when the check function returns true
+					return true;
+				}
+			}
+		});
+
 
 		this.registerMarkdownCodeBlockProcessor(
 			`audio-note`,
@@ -336,19 +377,22 @@ export default class AutomaticAudioNotes extends Plugin {
 		let audioDiv = undefined;
 		if (Platform.isDesktop || Platform.isDesktopApp || Platform.isMacOS || Platform.isSafari) {
 			const basePath = (this.app.vault.adapter as any).basePath; // the basePath is required by the <audio> tag for some reason :(
-			let audioSrcPath = `${audioNote.audioFilename}#t=${secondsToTimeString(audioNote.start)}`;
+			let audioSrcPath = `${audioNote.audioFilename}#t=${secondsToTimeString(audioNote.start, false)}`;
 			if (!audioNote.audioFilename.startsWith("https://")) {
 				audioSrcPath = `app://local/${basePath}/${audioSrcPath}`;
 			}
 			if (audioNote.end !== Infinity) {
-				audioSrcPath += `,${secondsToTimeString(audioNote.end)}`;
+				audioSrcPath += `,${secondsToTimeString(audioNote.end, false)}`;
 			}
 
-			audioDiv = createEl("audio", { attr: {
-				controls: "",
-				src: audioSrcPath,
-				type: "audio/mpeg",
-			} });
+			/*audioDiv = createEl("audio", {
+				attr: {
+					controls: "",
+					src: audioSrcPath,
+					type: "audio/mpeg",
+				}
+			});*/
+			audioDiv = this.createAudioDiv(audioSrcPath, audioNote);
 			admonitionLikeDiv.appendChild(audioDiv);
 			this.renderMarkdown(admonitionLikeDiv, audioDiv, currentMdFilename, ctx, ``);
 		} else {
@@ -358,6 +402,217 @@ export default class AutomaticAudioNotes extends Plugin {
 		}
 
 		return admonitionLikeDiv;
+	}
+
+	createAudioDiv(src: string, audioNote: AudioNote): HTMLElement {
+		/* https://css-tricks.com/lets-create-a-custom-audio-player/
+		<div id="audio-player-container">
+			<audio src="https://assets.codepen.io/4358584/Anitek_-_Komorebi.mp3" preload="metadata" loop></audio>
+			<button id="play-icon"></button>
+			<span id="current-time" class="time">0:00</span>
+			<input type="range" id="seek-slider" max="100" value="0">
+			<span id="duration" class="time">0:00</span>
+			<output id="volume-output">100</output>
+			<input type="range" id="volume-slider" max="100" value="100">
+			<button id="mute-icon"></button>
+		</div>
+		*/
+		const fakeUuid: string = generateRandomString(8);
+
+		const audio = new Audio(src);
+
+		const playButton = createEl("button", { attr: { id: `play-icon-${fakeUuid}` }, cls: "audio-note-play-button" });
+		const playIcon = getIcon("play");
+		const pauseIcon = getIcon("pause");
+		if (playIcon !== undefined) {
+			playButton.appendChild(playIcon);
+		}
+
+		const seeker = createEl("input", { attr: { id: `seek-slider-${fakeUuid}` }, type: "range", value: "0", cls: "seek-slider" });
+		seeker.max = "100";
+
+		const timeSpan = createEl("span", { attr: { id: `current-time-${fakeUuid}` }, cls: "time", text: "0:00" });
+
+		const volumeSlider = createEl("input", { attr: { id: `volume-slider-${fakeUuid}` }, type: "range", value: "100", cls: "volume-slider" });
+		volumeSlider.max = "100";
+
+		const muteButton = createEl("button", { attr: { id: `mute-icon-${fakeUuid}` }, cls: "audio-note-mute-button" });
+		const mutedIcon = getIcon("volume-off");
+		const unmutedIcon = getIcon("volume-up");
+		if (unmutedIcon !== undefined) {
+			muteButton.appendChild(unmutedIcon);
+		}
+
+		const forwardButton = createEl("button", { attr: { id: `forward-button-${fakeUuid}` }, cls: "audio-note-forward-button" });
+		const forwardIcon = getIcon("step-forward");
+		if (forwardIcon !== undefined) {
+			forwardButton.appendChild(forwardIcon);
+		}
+
+		const backwardButton = createEl("button", { attr: { id: `backward-button-${fakeUuid}` }, cls: "audio-note-backward-button" });
+		const backwardIcon = getIcon("step-backward");
+		if (backwardIcon !== undefined) {
+			backwardButton.appendChild(backwardIcon);
+		}
+
+		const resetTimeButton = createEl("button", { attr: { id: `reset-button-${fakeUuid}` }, cls: "audio-note-reset-button" });
+		const resetTimeIcon = getIcon("redo");
+		if (resetTimeIcon !== undefined) {
+			resetTimeButton.appendChild(resetTimeIcon);
+		}
+
+		// Event handlers
+
+		const audioPlayerContainer = createDiv({ attr: { id: `audio-player-container-${fakeUuid}` }, cls: "audio-player-container" })
+
+		const togglePlayback = () => {
+			if (audio.paused) {
+				audio.play();
+				if (playIcon !== undefined && pauseIcon !== undefined) {
+					playIcon.parentNode?.replaceChild(pauseIcon, playIcon);
+				}
+			} else {
+				audio.pause();
+				if (playIcon !== undefined && pauseIcon !== undefined) {
+					pauseIcon.parentNode?.replaceChild(playIcon, pauseIcon);
+				}
+			}
+		};
+
+		playButton.addEventListener('click', togglePlayback);
+
+		muteButton.addEventListener('click', () => {
+			if (audio.muted) {
+				audio.muted = false;
+				if (mutedIcon !== undefined && unmutedIcon !== undefined) {
+					mutedIcon.parentNode?.replaceChild(unmutedIcon, mutedIcon);
+				}
+			} else {
+				audio.muted = true;
+				if (mutedIcon !== undefined && unmutedIcon !== undefined) {
+					unmutedIcon.parentNode?.replaceChild(mutedIcon, unmutedIcon);
+				}
+			}
+		});
+
+		const forwardBackwardStep: number = 15; // in seconds
+
+		const holdit = (btn: HTMLButtonElement, action: () => void, start: number, speedup: number, forward: boolean) => {
+			let timeout: NodeJS.Timeout;
+			let mousedownTimeoutStarted = false;
+			let currenSpeed = start;
+
+			var repeat = function () {
+				action();
+				timeout = setTimeout(repeat, currenSpeed);
+				if (currenSpeed > 75) { // don't go too fast!
+					currenSpeed = currenSpeed / speedup;
+				}
+			}
+
+			btn.onmousedown = function () {
+				mousedownTimeoutStarted = true;
+				repeat();
+			}
+
+			btn.onmouseup = function () {
+				clearTimeout(timeout);
+				currenSpeed = start;
+			}
+
+			btn.onClickEvent(() => {
+				if (!mousedownTimeoutStarted) {
+					if (forward) {
+						audio.currentTime += forwardBackwardStep;
+					} else {
+						audio.currentTime -= forwardBackwardStep;
+					}
+					updateTime(timeSpan, seeker, audio);
+					updateSeeker(audio, seeker);
+				}
+				mousedownTimeoutStarted = false;
+			});
+		};
+
+		holdit(forwardButton, () => {
+			audio.currentTime += forwardBackwardStep;
+			updateTime(timeSpan, seeker, audio);
+			updateSeeker(audio, seeker);
+		}, 500, 1.2, true);
+
+		holdit(backwardButton, () => {
+			audio.currentTime -= forwardBackwardStep;
+			updateTime(timeSpan, seeker, audio);
+			updateSeeker(audio, seeker);
+		}, 500, 1.2, false);
+
+		resetTimeButton.addEventListener('click', () => {
+			audio.currentTime = audioNote.start;
+			updateTime(timeSpan, seeker, audio);
+			updateSeeker(audio, seeker);
+		});
+
+		const updateAudio = (audio: HTMLMediaElement, seeker: HTMLInputElement) => {
+			audio.currentTime = parseFloat(seeker.value);
+		}
+
+		const updateSeeker = (audio: HTMLMediaElement, seeker: HTMLInputElement) => {
+			seeker.max = Math.floor(audio.duration).toString();
+			seeker.value = audio.currentTime.toString();
+		}
+
+		const updateTime = (timeSpan: HTMLSpanElement, seeker: HTMLInputElement, audio: HTMLMediaElement) => {
+			timeSpan.textContent = secondsToTimeString(audio.currentTime, true) + " / " + secondsToTimeString(audio.duration, true);
+		}
+
+		if (audio.readyState > 0) {
+			updateSeeker(audio, seeker);
+			updateTime(timeSpan, seeker, audio);
+		} else {
+			audio.addEventListener('loadedmetadata', () => {
+				updateSeeker(audio, seeker);
+				updateTime(timeSpan, seeker, audio);
+			});
+		}
+
+		audio.addEventListener('timeupdate', (ev: Event) => {
+			updateTime(timeSpan, seeker, audio);
+			updateSeeker(audio, seeker);
+		});
+
+		seeker.addEventListener('input', () => {
+			updateTime(timeSpan, seeker, audio);
+			updateAudio(audio, seeker);
+		});
+
+		seeker.addEventListener('change', (ev: Event) => {
+			updateTime(timeSpan, seeker, audio);
+			updateAudio(audio, seeker);
+		});
+
+		// Always make the space bar toggle the playback
+		const overrideSpaceKey = (event: any) => {
+			if (event.keyCode === 32) {
+				event.preventDefault();
+				togglePlayback();
+			}
+		};
+		playButton.onkeydown = overrideSpaceKey;
+		backwardButton.onkeydown = overrideSpaceKey;
+		forwardButton.onkeydown = overrideSpaceKey;
+		resetTimeButton.onkeydown = overrideSpaceKey;
+
+		// Create the container div.
+		audioPlayerContainer.appendChild(audio);
+		audioPlayerContainer.appendChild(playButton);
+		audioPlayerContainer.appendChild(seeker);
+		audioPlayerContainer.appendChild(timeSpan);
+		audioPlayerContainer.appendChild(backwardButton);
+		audioPlayerContainer.appendChild(forwardButton);
+		audioPlayerContainer.appendChild(resetTimeButton);
+		audioPlayerContainer.appendChild(muteButton);
+		// audioPlayerContainer.appendChild(volumeSlider);
+		return audioPlayerContainer;
 	}
 
 	renderMarkdown(parent: HTMLElement, obj: HTMLElement, sourcePath: string, ctx: MarkdownPostProcessorContext | undefined, withText: string): void {
@@ -449,8 +704,6 @@ export default class AutomaticAudioNotes extends Plugin {
 				audioLine = line.split(":").slice(1, undefined).join(":").trim();
 			} else if (line.startsWith("transcript:")) {
 				transcriptFilename = line.split(":").slice(1, undefined).join(":").trim();
-			} else if (line.startsWith("quote-created-for:")) {
-				quoteCreatedForLine = line.split(":").slice(1, undefined).join(":").trim();
 			} else if (line.trim() === "---") {
 				quoteHasStarted = true;
 			}
@@ -460,7 +713,7 @@ export default class AutomaticAudioNotes extends Plugin {
 			throw new Error("No audio file defined");
 		}
 
-		const extendAudio = audioLine.endsWith("!");
+		const extendAudio = audioLine.includes("!");
 		let audioFilename = undefined;
 		let start = undefined;
 		let end = undefined;
@@ -494,7 +747,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		return audioNote;
 	}
 
-	async rerenderAllAudioNotes(view: MarkdownView) {
+	async rerenderAllAudioNotes(view: MarkdownView, basedOnCurrentTimestamp: boolean) {
 		new Notice('Generating Audio Notes...');
 
 		// Get the file contents of the current markdown file.
@@ -513,69 +766,20 @@ export default class AutomaticAudioNotes extends Plugin {
 			if (!audioNote.transcriptFilename) {
 				continue;
 			}
-			if (audioNote.needsToBeUpdated && !translationFilenames.includes(audioNote.transcriptFilename)) {
+			if ((audioNote.needsToBeUpdated || basedOnCurrentTimestamp) && !translationFilenames.includes(audioNote.transcriptFilename)) {
 				translationFilenames.push(audioNote.transcriptFilename);
 			}
 		}
 		const translationFilesContents = await this.loadFiles(translationFilenames);
 
 		for (const audioNote of audioNotes) {
-			if (audioNote.needsToBeUpdated) {
+			if (audioNote.needsToBeUpdated || basedOnCurrentTimestamp) {
 				if (!audioNote.transcriptFilename) {
 					new Notice("No transcript file defined for audio note.", 10000);
 					continue;
 				}
-				if (audioNote.quote && audioNote.quote.includes("`")) {
-					new Notice("Before the generation can be run, you must remove any audio notes that have the character ` in their quote.", 10000);
-					continue;
-				}
-				if (audioNote.start >= audioNote.end) {
-					new Notice("An audio note has a start time that is after the end time. Fix it!", 10000);
-					continue;
-				}
-				// Get the new quote.
 				const transcript = translationFilesContents.get(audioNote.transcriptFilename);
-				if (!transcript) {
-					console.error(`Could not find transcript: ${audioNote.transcriptFilename}`);
-					new Notice(`Could not find transcript: ${audioNote.transcriptFilename}`), 10000;
-					continue;
-				}
-				const [quoteStart, quoteEnd, newQuote] = this.getQuoteFromTranscript(audioNote, transcript);
-
-				// Update the view.editor.
-				if (audioNote.startLineNumber === undefined || audioNote.endLineNumber === undefined || audioNote.endChNumber === undefined) {
-					console.error(`Could not find line numbers of audio-note...? This should be impossible.`)
-					return undefined;
-				}
-				// Figure out the start and end position of the audio note in the .md file.
-				let start = audioNote.start;
-				let end = audioNote.end;
-				if (audioNote.extendAudio) {
-					start = quoteStart;
-					end = quoteEnd;
-				}
-				const startLine = audioNote.startLineNumber + 1;
-				const startCh = 0;
-				const endLine = audioNote.endLineNumber - 1;
-				const endCh = audioNote.endChNumber;
-				const srcStart = { line: startLine, ch: startCh };
-				const srcEnd = { line: endLine, ch: endCh };
-				// Create the new audio note text.
-				let newAudioNoteText = `audio: ${audioNote.audioFilename}`;
-				if (start) {
-					newAudioNoteText += `#t=${secondsToTimeString(start)}`;
-					if (end !== Infinity) {
-						newAudioNoteText += `,${secondsToTimeString(end)}`;
-					}
-				}
-				newAudioNoteText += `\n`;
-				newAudioNoteText += `title: ${audioNote.title}\n`
-				newAudioNoteText += `transcript: ${audioNote.transcriptFilename}\n`
-				// newAudioNoteText += `quote-created-for: [${secondsToTimeString(start)},${secondsToTimeString(end)}]\n`;
-				newAudioNoteText += `---\n`
-				newAudioNoteText += `${newQuote}`;
-				// Perform the replacement.
-				view.editor.replaceRange(newAudioNoteText, srcStart, srcEnd);
+				this.rerenderAudioNote(audioNote, transcript, view, basedOnCurrentTimestamp);
 			}
 		}
 
@@ -583,7 +787,90 @@ export default class AutomaticAudioNotes extends Plugin {
 		new Notice('Audio Note generation complete!');
 	}
 
-	getQuoteFromTranscript(audioNote: AudioNote, transcriptContents: string): [number, number, string] {
+	rerenderAudioNote(audioNote: AudioNoteWithPositionInfo, transcript: string | undefined, view: MarkdownView, basedOnCurrentTimestamp: boolean): void {
+		if (!audioNote.transcriptFilename) {
+			new Notice("No transcript file defined for audio note.", 10000);
+			return;
+		}
+		if (audioNote.quote && audioNote.quote.includes("`")) {
+			new Notice("Before the generation can be run, you must remove any audio notes that have the character ` in their quote.", 10000);
+			return;
+		}
+		if (audioNote.start >= audioNote.end) {
+			new Notice("An audio note has a start time that is after the end time. Fix it!", 10000);
+			return;
+		}
+		// Get the new quote.
+		if (!transcript) {
+			console.error(`Could not find transcript: ${audioNote.transcriptFilename}`);
+			new Notice(`Could not find transcript: ${audioNote.transcriptFilename}`), 10000;
+			return;
+		}
+
+		let start = audioNote.start;
+		let end = audioNote.end;
+		if (basedOnCurrentTimestamp) {
+			// Get the <audio> element. If there is more than one, throw an error.
+			const sourceView = view.contentEl.querySelector(".markdown-source-view");
+			if (!sourceView) {
+				console.error(`Must be in editor mode.`);
+				new Notice(`Must be in editor mode.`), 10000;
+				return;
+			}
+			const audios: HTMLMediaElement[] = sourceView.findAll("audio") as HTMLMediaElement[];
+			if (audios.length !== 1) {
+				console.error(`There can only be one audio note in the file when running this command. Found ${audios.length}.`);
+				console.log(audios);
+				new Notice(`There can only be one audio note in the file when running this command. Found ${audios.length}.`), 10000;
+				return;
+			}
+			const audio = audios[0];
+			start = audio.currentTime - 30;
+			end = audio.currentTime + 30;
+			if (end > audio.duration) {
+				end = audio.duration;
+			}
+		}
+
+		start = Math.max(0, start);
+		// end = Math.min(end, end); // we don't know when the end of the audio is, so we can't set this.
+		const [quoteStart, quoteEnd, newQuote] = this.getQuoteFromTranscript(start, end, transcript);
+		if (audioNote.extendAudio) {
+			start = quoteStart;
+			end = quoteEnd;
+		}
+
+		// Update the view.editor.
+		if (audioNote.startLineNumber === undefined || audioNote.endLineNumber === undefined || audioNote.endChNumber === undefined) {
+			console.error(`Could not find line numbers of audio-note...? This should be impossible.`)
+			return undefined;
+		}
+		// Figure out the start and end position of the audio note in the .md file.
+		const startLine = audioNote.startLineNumber + 1;
+		const startCh = 0;
+		const endLine = audioNote.endLineNumber - 1;
+		const endCh = audioNote.endChNumber;
+		const srcStart = { line: startLine, ch: startCh };
+		const srcEnd = { line: endLine, ch: endCh };
+		// Create the new audio note text.
+		let newAudioNoteText = `audio: ${audioNote.audioFilename}`;
+		if (start) {
+			newAudioNoteText += `#t=${secondsToTimeString(start, false)}`;
+			if (end !== Infinity) {
+				newAudioNoteText += `,${secondsToTimeString(end, false)}`;
+			}
+		}
+		newAudioNoteText += `\n`;
+		newAudioNoteText += `title: ${audioNote.title}\n`
+		newAudioNoteText += `transcript: ${audioNote.transcriptFilename}\n`
+		// newAudioNoteText += `quote-created-for: [${secondsToTimeString(start, false)},${secondsToTimeString(end, false)}]\n`;
+		newAudioNoteText += `---\n`
+		newAudioNoteText += `${newQuote}`;
+		// Perform the replacement.
+		view.editor.replaceRange(newAudioNoteText, srcStart, srcEnd);
+	}
+
+	getQuoteFromTranscript(quoteStart: number, quoteEnd: number, transcriptContents: string): [number, number, string] {
 		// Get the relevant part of the transcript.
 		const transcript = JSON.parse(transcriptContents); // For now, use the file format defined by OpenAI Whisper
 		const segments = transcript.segments;
@@ -595,7 +882,7 @@ export default class AutomaticAudioNotes extends Plugin {
 			const segmentStart = segment.start;
 			const segmentEnd = segment.end;
 			// If either the segment's start or end is inside the range specified by the user...
-			if ((audioNote.start <= segmentStart && segmentStart < audioNote.end) || (audioNote.start < segmentEnd && segmentEnd <= audioNote.end)) {
+			if ((quoteStart <= segmentStart && segmentStart < quoteEnd) || (quoteStart < segmentEnd && segmentEnd <= quoteEnd)) {
 				result.push(text);
 				if (start === undefined) {
 					start = segmentStart;
@@ -603,7 +890,7 @@ export default class AutomaticAudioNotes extends Plugin {
 				end = segmentEnd;
 			}
 			// If the range specified by the user is entirely within the segment...
-			if (audioNote.start >= segmentStart && audioNote.end <= segmentEnd) {
+			if (quoteStart >= segmentStart && quoteEnd <= segmentEnd) {
 				result.push(text);
 				if (start === undefined) {
 					start = segmentStart;

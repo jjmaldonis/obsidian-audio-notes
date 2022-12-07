@@ -55,14 +55,23 @@ The following python script will perform speech recognition on your audio file a
 import whisper
 import json
 
+
+# If tkinter is installed (`pip install tkinter`), show a "Select File" dialog.
+try:
+    import tkinter as tk
+    from tkinter.filedialog import askopenfilename
+    root = tk.Tk()
+    root.withdraw()
+    audio_filename = askopenfilename()
+    print(f"You selected: {audio_filename}")
+except ImportError:
+    audio_filename = r"<path-to-audio-file-in-your-vault>.mp3"
+
+
 # Set the following information to perform speech recognition:
 model_name = "small.en"  # See https://github.com/openai/whisper for other options
-audio_filename = r"<path-to-audio-file-in-your-vault>.mp3"
 start: float = None  # (optional) Set to the # of seconds to start at
 end: float = None  # (optional) Set to the # of seconds to end at
-
-# Load the model. It may be multiple GBs.
-model = whisper.load_model(model_name)
 
 # Load the audio file and trim it if desired
 audio = whisper.load_audio(audio_filename)
@@ -71,6 +80,9 @@ if end is not None:
     audio = audio[:int(end * samples_per_second)]
 if start is not None:
     audio = audio[int(start * samples_per_second):]
+
+# Load the model. It may be multiple GBs.
+model = whisper.load_model(model_name)
 
 # Generate the transcript. This may take a long time.
 result = model.transcribe(audio, verbose=False)
