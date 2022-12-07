@@ -262,6 +262,7 @@ export default class AutomaticAudioNotes extends Plugin {
 	currentlyPlayingAudioFakeUuid: string | null = null;
 
 	updateCurrentTimeOfAudio(audio: HTMLMediaElement): void {
+		// There is a minor bug if users delete a src and readd the same src, because the currentTime will change on the new src.
 		this.knownCurrentTimes.set(audio.src, audio.currentTime);
 		const knownAudios = this.knownAudioPlayers.get(audio.src);
 		for (const knownPlayer of knownAudios) {
@@ -315,7 +316,14 @@ export default class AutomaticAudioNotes extends Plugin {
 					if (!checking) {
 						// Note: `.cache` is required (rather than `await ...`) due to the type required by `editorCheckCallback`.
 						this.getFirstAudioNoteInFile(markdownView.file).then((audioNote: AudioNote) => {
-							const audioElements = this.getAudioHTMLMediaElementsInMode(markdownView.currentMode as any);
+							let el: HTMLElement | undefined = undefined;
+							if (markdownView.getMode() === 'source') {
+								el = (markdownView as any).modes.source.editorEl;
+							} else {
+								el = (markdownView as any).modes.preview.containerEl;
+							}
+							const audioElements = this.getAudioHTMLMediaElementsInMode(el!);
+
 							const firstAudioElement = audioElements[0].find("audio")! as HTMLMediaElement;
 							audioNote.start = firstAudioElement.currentTime - 30;
 							audioNote.end = firstAudioElement.currentTime + 30;
@@ -380,12 +388,6 @@ export default class AutomaticAudioNotes extends Plugin {
 			}
 			el.replaceWith(theDiv);
 
-			/*  I wanted to use this to synchronize the playback times between live preview and reading modes, but it doesn't seem to be possible.
-				I would have to give each audio-note a unique ID, but that isn't a good user experience.
-				I could assume that each note has a unique `src`, but that may not be true in practice. What are the results if I do assume this?
-				  The time/seek slider would change in audio notes where they shouldn't. That isn't all that big of a deal.
-				  There will also be a weird bug if users delete a src and readd the same src, because the currentTime will change on the new src.
-			*/
 			const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
 			if (markdownView) {
 				const playersInSource = this.getAudioHTMLMediaElementsInMode((markdownView as any).modes.source.editorEl);
@@ -1080,5 +1082,9 @@ export default class AutomaticAudioNotes extends Plugin {
 		return new AudioBlockWithCurrentTime(audioFilename, start, end, el.currentTime);
 	}
 
-	onunload() { }
+	onunload() {
+		this.knownCurrentTimes.clear();;
+		this.knownAudioPlayers.clear();
+		this.currentlyPlayingAudioFakeUuid = null;
+	}
 }
