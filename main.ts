@@ -7,6 +7,9 @@ import {
 	Notice,
 	TFile,
 	Platform,
+	PluginSettingTab,
+	App,
+	Setting,
 } from 'obsidian';
 import { IconPrefix } from "@fortawesome/free-regular-svg-icons";
 import type { IconName } from "@fortawesome/fontawesome-svg-core";
@@ -256,10 +259,56 @@ class AudioNoteWithPositionInfo extends AudioNote {
 	}
 }
 
+
+export class AudioNotesSettingsTab extends PluginSettingTab {
+  plugin: AutomaticAudioNotes;
+
+  constructor(app: App, plugin: AutomaticAudioNotes) {
+    super(app, plugin);
+    this.plugin = plugin;
+  }
+
+  display(): void {
+    let { containerEl } = this;
+
+    containerEl.empty();
+
+    new Setting(containerEl)
+      .setName("+/- duration")
+      .setDesc("The amount of time to fastword and rewind when creating new audio notes")
+      .addText((text) =>
+        text
+          .setPlaceholder("15")
+          .setValue(this.plugin.settings.plusMinusDuration)
+          .onChange(async (value) => {
+            this.plugin.settings.plusMinusDuration = value;
+            await this.plugin.saveSettings();
+          })
+      );
+  }
+}
+
+interface AudioNotesSettings {
+	plusMinusDuration: string;
+}
+
+const DEFAULT_SETTINGS: Partial<AudioNotesSettings> = {
+	plusMinusDuration: "15",
+};
+
 export default class AutomaticAudioNotes extends Plugin {
+	settings: AudioNotesSettings;
 	knownCurrentTimes: Map<string, number> = new Map();
 	knownAudioPlayers: DefaultMap<string, HTMLElement[]> = new DefaultMap(() => []);
 	currentlyPlayingAudioFakeUuid: string | null = null;
+
+	async loadSettings() {
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+	}
+
+	async saveSettings() {
+		await this.saveData(this.settings);
+	}
 
 	updateCurrentTimeOfAudio(audio: HTMLMediaElement): void {
 		// There is a minor bug if users delete a src and readd the same src, because the currentTime will change on the new src.
@@ -280,10 +329,15 @@ export default class AutomaticAudioNotes extends Plugin {
 	}
 
 	async onload() {
+		// Settings
+		await this.loadSettings();
+		this.addSettingTab(new AudioNotesSettingsTab(this.app, this));
+
 		// This adds a complex command that can check whether the current state of the app allows execution of the command
+		/*  This command may not be useful. Let's comment it out for now, but come back to it later.
 		this.addCommand({
-			id: 'generate-audio-notes',
-			name: 'Generate Audio Notes',
+			id: 'regenerate-audio-notes',
+			name: 'Regenerate Audio Notes',
 			checkCallback: (checking: boolean) => {
 				// Conditions to check
 				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
@@ -296,17 +350,18 @@ export default class AutomaticAudioNotes extends Plugin {
 							new Notice("Could not generate audio notes.", 10000)
 						});
 					}
-
+	
 					// This command will only show up in Command Palette when the check function returns true
 					return true;
 				}
 			}
 		});
+		*/
 
 		// This adds a complex command that can check whether the current state of the app allows execution of the command
 		this.addCommand({
 			id: 'create-new-audio-note',
-			name: 'Create new Audio Note at current time (+/- 30 seconds)',
+			name: `Create new Audio Note at current time (+/- ${this.settings.plusMinusDuration} seconds)`,
 			checkCallback: (checking: boolean) => {
 				// Conditions to check
 				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
@@ -325,8 +380,8 @@ export default class AutomaticAudioNotes extends Plugin {
 							const audioElements = this.getAudioHTMLMediaElementsInMode(el!);
 
 							const firstAudioElement = audioElements[0].find("audio")! as HTMLMediaElement;
-							audioNote.start = firstAudioElement.currentTime - 30;
-							audioNote.end = firstAudioElement.currentTime + 30;
+							audioNote.start = firstAudioElement.currentTime - parseFloat(this.settings.plusMinusDuration);
+							audioNote.end = firstAudioElement.currentTime + parseFloat(this.settings.plusMinusDuration);
 							this.createNewAudioNoteAtEndOfFile(markdownView, audioNote).catch((error) => {
 								console.error(error);
 								new Notice("Coud not create audio note at end of file.", 10000);
@@ -561,14 +616,8 @@ export default class AutomaticAudioNotes extends Plugin {
 		const togglePlayback = () => {
 			if (audio.paused) {
 				audio.play();
-				if (playIcon !== undefined && pauseIcon !== undefined) {
-					playIcon.parentNode?.replaceChild(pauseIcon, playIcon);
-				}
 			} else {
 				audio.pause();
-				if (playIcon !== undefined && pauseIcon !== undefined) {
-					pauseIcon.parentNode?.replaceChild(playIcon, pauseIcon);
-				}
 			}
 		};
 
@@ -588,7 +637,7 @@ export default class AutomaticAudioNotes extends Plugin {
 			}
 		});
 
-		const forwardBackwardStep: number = 15; // in seconds
+		const forwardBackwardStep: number = 5; // in seconds
 
 		const updateTime = (timeSpan: HTMLSpanElement, audio: HTMLMediaElement) => {
 			timeSpan.textContent = secondsToTimeString(audio.currentTime, true) + " / " + secondsToTimeString(audio.duration, true);
@@ -685,14 +734,23 @@ export default class AutomaticAudioNotes extends Plugin {
 
 		audio.addEventListener('play', (ev: Event) => {
 			this.currentlyPlayingAudioFakeUuid = fakeUuid;
+			if (playIcon !== undefined && pauseIcon !== undefined) {
+				playIcon.parentNode?.replaceChild(pauseIcon, playIcon);
+			}
 		});
 
 		audio.addEventListener('pause', (ev: Event) => {
 			this.currentlyPlayingAudioFakeUuid = null;
+			if (playIcon !== undefined && pauseIcon !== undefined) {
+				pauseIcon.parentNode?.replaceChild(playIcon, pauseIcon);
+			}
 		});
 
 		audio.addEventListener('ended', (ev: Event) => {
 			this.currentlyPlayingAudioFakeUuid = null;
+			if (playIcon !== undefined && pauseIcon !== undefined) {
+				pauseIcon.parentNode?.replaceChild(playIcon, pauseIcon);
+			}
 		});
 
 		seeker.addEventListener('input', () => {
@@ -718,6 +776,36 @@ export default class AutomaticAudioNotes extends Plugin {
 		backwardButton.onkeydown = overrideSpaceKey;
 		forwardButton.onkeydown = overrideSpaceKey;
 		resetTimeButton.onkeydown = overrideSpaceKey;
+
+		// Hook into the media session. https://developer.mozilla.org/en-US/docs/Web/API/MediaSession/setActionHandler
+		if ('mediaSession' in navigator) {
+			let title = audioNote.audioFilename;
+			title = title.split(".")[title.split(".").length - 2];
+			title = title.split("/")[title.split("/").length - 1];
+			title = title.split("\\")[title.split("\\").length - 1];
+			navigator.mediaSession.metadata = new MediaMetadata({
+				title: title,
+			});
+
+			navigator.mediaSession.setActionHandler('play', () => { audio.play(); });
+			navigator.mediaSession.setActionHandler('pause', () => { audio.pause(); });
+			navigator.mediaSession.setActionHandler('stop', () => { audio.pause(); });
+			navigator.mediaSession.setActionHandler('seekbackward', () => {
+				audio.currentTime -= forwardBackwardStep;
+				updateTime(timeSpan, audio);
+				updateSeeker(audio, seeker);
+			});
+			navigator.mediaSession.setActionHandler('seekforward', () => {
+				audio.currentTime += forwardBackwardStep;
+				updateTime(timeSpan, audio);
+				updateSeeker(audio, seeker);
+			});
+			navigator.mediaSession.setActionHandler('seekto', (ev: any) => {
+				audio.currentTime = ev.seekTime;
+				updateTime(timeSpan, audio);
+				updateSeeker(audio, seeker);
+			});
+		}
 
 		// Create the container div.
 		if (Platform.isDesktop || Platform.isDesktopApp || Platform.isMacOS) { // desktop
@@ -871,10 +959,7 @@ export default class AutomaticAudioNotes extends Plugin {
 				quoteLines[i] = `\\${quoteLines[i]}`
 			}
 		}
-		let quote = quoteLines.join("\n").trim() || undefined;
-		if (quote) {
-			quote = quote.replace(new RegExp("  "), " ");  // For some reason double spaces are often in the text. Remove them because they get removed by the HTML rendering anyway.
-		}
+		const quote = quoteLines.join("\n").trim() || undefined;
 		let quoteCreatedForStart = undefined;
 		let quoteCreatedForEnd = undefined;
 		if (quoteCreatedForLine) {
@@ -1013,7 +1098,19 @@ export default class AutomaticAudioNotes extends Plugin {
 				end = segmentEnd;
 			}
 		}
-		const quoteText = result.join(" ").trim();
+		let quoteText = result.join(" ").trim();
+		if (quoteText) {
+			// For some reason double spaces are often in the text. Remove them because they get removed by the HTML rendering anyway.
+			let i = 0;
+			while(quoteText.includes("  ")) {
+				quoteText = quoteText.replace(new RegExp("  "), " ");  
+				// Make sure we don't hit an infinite loop, even though it should be impossible.
+				i += 1;
+				if (i > 100) {
+					break;
+				}
+			}
+		}
 		return [start, end, quoteText];
 	}
 

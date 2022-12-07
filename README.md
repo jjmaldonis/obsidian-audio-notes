@@ -1,48 +1,53 @@
 # Obsidian Audio Notes
 
-## Overview
+<strong>Audio Notes</strong> is a plugin for the note-taking app Obsidian.
 
-<strong>Audio Notes</strong> is a plugin for the note-taking app Obsidian. It helps you create notes for audio files.
+In order to apply the property styling for audio notes, you must have the [Admonition](https://github.com/valentine195/obsidian-admonition) plugin installed.
 
-Here an example:
+## What are Audio Notes?
+
+<strong>Audio Notes</strong> makes it easy to take notes on audio files as you listen to them.
+
+Check it out!
+
+![](assets/audio-notes-example.gif)
+
+<strong>Audio Notes</strong> creates a quote callout that contains the quote from the audio and an embedded audio player.
+
+If you use the speech recognition software described below, you can generate transcripts for your audio files. Once you have a transcript, <strong>Audio Notes</strong> will automatically generate quotes for your notes!
+
+Audio notes look like this:
 ![](assets/renderedNote.png)
 
-Audio notes have a title, the quote in the audio, and an audio player to replay the audio.
-
-Audio notes can be created using an [Admonition](https://github.com/valentine195/obsidian-admonition)-like code block:
+To create one, you must specify an audio file and may set a few other attributes. All attributes are set using an Admonition-like code block (thanks [Admonition](https://github.com/valentine195/obsidian-admonition)!):
 ![](assets/unrenderedNote.png)
 
-The following information can be set:
-```audio-note
-audio: ...
-title: ...
-transcript: ...
-author: ...
----
-<your quote>
-```
-
 * `audio`: (required) The audio filename. It can be a local file or a link to an audio file online.
-  * You can add `#t=<start>,<end>` to the end of the filename to set the start and end time of the quote. For example, you can add `t=1:20,130`. If you do not want to set an end time, you can simply use `t=1:20`.
+  * (optional) You can add `#t=<start>,<end>` to the end of the filename to set the start and end time of the quote. For example, you can add `t=1:20,1:30` to start the audio segment at 1:20 and end at 1:30. If you do not want to set an end time, you can simply use `t=<start>`.
 * `title`: (optional) The title of your note.
 * `transcript`: (optional) The filename of the transcript. See below for details.
 * `author`: (optional) The text to be used as the author of the quote.
 
-### The Admonition Plugin is Required for Styling
+## How to Use the Plugin
 
-In order to apply the property styling, you must also have the [Admonition](https://github.com/valentine195/obsidian-admonition) plugin installed.
+Find the .mp3 file you want to take notes on and move it into your vault. You may want to generate a transcript using the Python code at the end of this README to allow <strong>Audio Notes</strong> to automatically insert the transcript of the audio.
 
-## Generating Quotes using Automatically
+Once your .mp3 file is in your vault, create a new note and create an Audio Note by writing an Admonition-like code block. Here is an example:
 
-<strong>Audio Notes</strong> can automatically insert the text in the audio if a transcript for the audio is available (see [Generating a Transcript](#generating-a-transcript) below).
+    ```audio-note
+    audio: assets/276-paul-grahams-essays-part-2-ads.mp3
+    title: Founders Podcast, Episode 276 - Paul Graham's Essays Part 2
+    transcript: assets/276-paul-grahams-essays-part-2-ads.json
+    ```
 
-If you run the command (Ctrl+P) `Generate Audio Notes`, the plugin will find the relevant text in the transcript and automatically insert the text in the note.
+Start listening!
 
-The `audio-note` code block will not be overwritten if a quote for the note already exists. This allows you to update the quote's text/formatting without it being overwritten. If you want the quote to be overwritten, delete it before running `Generate Audio Notes`.
+When you want to take a note on what was said, pause the audio and run the command `Create new Audio Note at current time (+/- 15 seconds)`. A new audio note will be added at the end of the file, based on the current time of the first audio player in the file.
 
-![](assets/example.gif)
+Edit the newly created audio note to your heart's content! You can change the text and the start/end times of the audio segment.
 
-You can add an exclamation point `!` to the end of the `audio` filename (after `#t=<start>,<end>`) to automatically adjust the start and end times of the audio to match the generated quote. This can be useful if you don't know the exact start and end times.
+Listen to your note any time, anywhere :)
+
 ## Generating a Transcript
 
 If you have an audio file on your computer, you can use [OpenAI Whisper](https://github.com/openai/whisper) to generate a transcript. At the time of writing this plugin, OpenAI Whisper is the state-of-the-art speech recognition library.
@@ -51,12 +56,14 @@ You can easily run OpenAI Whisper using Python 3.9. First install Python 3.9 (I 
 
 The following python script will perform speech recognition on your audio file and save the transcript to your vault. Once the transript is in your vault, the Audio Notes plugin can use it to generate text automatically.
 
+You can install `tkinter` using `pip install tkinter` to display a "Select File" dialog rather than setting the filename in the code.
+
 ```
 import whisper
 import json
 
 
-# If tkinter is installed (`pip install tkinter`), show a "Select File" dialog.
+# If tkinter is installed, show a "Select File" dialog.
 try:
     import tkinter as tk
     from tkinter.filedialog import askopenfilename
