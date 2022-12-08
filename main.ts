@@ -374,7 +374,6 @@ export default class AutomaticAudioNotes extends Plugin {
 		await this.loadSettings();
 		this.addSettingTab(new AudioNotesSettingsTab(this.app, this));
 
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
 		this.addCommand({
 			id: 'create-new-audio-note',
 			name: `Create new Audio Note at current time (+/- ${this.getSettingsPlusMinusDuration()} seconds)`,
@@ -385,7 +384,7 @@ export default class AutomaticAudioNotes extends Plugin {
 					// If checking is true, we're simply "checking" if the command can be run.
 					// If checking is false, then we want to actually perform the operation.
 					if (!checking) {
-						// Note: `.cache` is required (rather than `await ...`) due to the type required by `editorCheckCallback`.
+						// Note: `.catch` is required (rather than `await ...`) due to the type required by `editorCheckCallback`.
 						this.getFirstAudioNoteInFile(markdownView.file).then((audioNote: AudioNote) => {
 							const audioSrcPath = this._getFullAudioSrcPath(audioNote);
 							if (!audioSrcPath) {
@@ -398,14 +397,56 @@ export default class AutomaticAudioNotes extends Plugin {
 							audioNote.start = currentTime - this.getSettingsPlusMinusDuration();
 							audioNote.end = currentTime + this.getSettingsPlusMinusDuration();
 							this.createNewAudioNoteAtEndOfFile(markdownView, audioNote).catch((error) => {
-								console.error(error);
-								this.app.vault.append(markdownView.file, `${error}`);
+								console.error(`Audio Notes: ${error}`);
 								new Notice("Coud not create audio note at end of file.", 10000);
 							});
 						}).catch((error: Error) => {
-							console.error(error);
-							this.app.vault.append(markdownView.file, `\n\n${error}`);
+							console.error(`Audio Notes: ${error}`);
 							new Notice("Could not find audio note.", 10000)
+						});
+					}
+
+					// This command will only show up in Command Palette when the check function returns true
+					return true;
+				}
+			}
+		});
+
+		this.addCommand({
+			id: 'regenerate-current-audio-note',
+			name: 'Regenerate Current Audio Note',
+			checkCallback: (checking: boolean) => {
+				// Conditions to check
+				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+				if (markdownView) {
+					// If checking is true, we're simply "checking" if the command can be run.
+					// If checking is false, then we want to actually perform the operation.
+					if (!checking) {
+						// Note: `.catch` is required (rather than `await ...`) due to the type required by `editorCheckCallback`.
+						this.regenerateCurrentAudioNote(markdownView).catch((error) => {
+							new Notice("Could not generate audio notes.", 10000)
+						});
+					}
+
+					// This command will only show up in Command Palette when the check function returns true
+					return true;
+				}
+			}
+		});
+
+		this.addCommand({
+			id: 'regenerate-audio-notes',
+			name: 'Regenerate All Audio Notes',
+			checkCallback: (checking: boolean) => {
+				// Conditions to check
+				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+				if (markdownView) {
+					// If checking is true, we're simply "checking" if the command can be run.
+					// If checking is false, then we want to actually perform the operation.
+					if (!checking) {
+						// Note: `.catch` is required (rather than `await ...`) due to the type required by `editorCheckCallback`.
+						this.regenerateAllAudioNotes(markdownView).catch((error) => {
+							new Notice("Could not generate audio notes.", 10000)
 						});
 					}
 
@@ -420,6 +461,8 @@ export default class AutomaticAudioNotes extends Plugin {
 			`audio-note`,
 			(src, el, ctx) => this.postprocessor(src, el, ctx)
 		);
+
+		console.log("Audio Notes: Obsidian Audio Notes loaded")
 	}
 
 	replaceElementWithError(el: HTMLElement, error: Error): void {
@@ -493,7 +536,7 @@ export default class AutomaticAudioNotes extends Plugin {
 
 			return null;
 		} catch (error) {
-			console.error(error);
+			console.error(`Audio Notes: ${error}`);
 			this.replaceElementWithError(el, error);
 		}
 	}
@@ -565,7 +608,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		let audioSrcPath: string | undefined = undefined;
 		const tfile = this.app.vault.getAbstractFileByPath(audioNote.audioFilename);
 		if (!tfile) {
-			console.error(`Could not find audio file: ${audioNote.audioFilename}`)
+			console.error(`AudioNotes: Could not find audio file: ${audioNote.audioFilename}`)
 			return undefined;
 		}
 		audioSrcPath = this.app.vault.getResourcePath(tfile as TFile);
@@ -995,7 +1038,6 @@ export default class AutomaticAudioNotes extends Plugin {
 		}
 		if (audioLine === undefined) {
 			new Notice("No audio file defined for audio note.", 10000);
-			console.error(src);
 			throw new Error("No audio file defined");
 		}
 
@@ -1041,13 +1083,13 @@ export default class AutomaticAudioNotes extends Plugin {
 		}
 		// Get the new quote.
 		if (!transcript) {
-			console.error(`Could not find transcript: ${audioNote.transcriptFilename}`);
+			console.error(`Audio Notes: Could not find transcript: ${audioNote.transcriptFilename}`);
 			new Notice(`Could not find transcript: ${audioNote.transcriptFilename}`), 10000;
 		}
 
 		const sourceView = view.contentEl.querySelector(".markdown-source-view");
 		if (!sourceView) {
-			console.error(`Must be in editor mode.`);
+			console.error(`Audio Notes: Must be in editor mode.`);
 			new Notice(`Must be in editor mode.`), 10000;
 			return undefined;
 		}
@@ -1154,6 +1196,135 @@ export default class AutomaticAudioNotes extends Plugin {
 			players.push(_players[i] as HTMLElement);
 		}
 		return players;
+	}
+
+	async regenerateAllAudioNotes(view: MarkdownView) {
+		new Notice('Regenerating All Audio Notes...');
+
+		// Get the file contents of the current markdown file.
+		const currentMdFilename = view.file.path;
+		const fileContents = await this.loadFiles([currentMdFilename]);
+		const currentMdFileContents = fileContents.get(currentMdFilename);
+		if (currentMdFileContents === undefined) {
+			console.error(`Audio Notes: Could not find current .md: ${currentMdFilename}...? This should be impossible.`);
+			return undefined;
+		}
+		const audioNotes: AudioNoteWithPositionInfo[] = this.getAudioNoteBlocks(currentMdFileContents);
+
+		// Load the transcripts.
+		const translationFilenames: string[] = [];
+		for (const audioNote of audioNotes) {
+			if (!audioNote.transcriptFilename) {
+				continue;
+			}
+			if ((audioNote.needsToBeUpdated) && !translationFilenames.includes(audioNote.transcriptFilename)) {
+				translationFilenames.push(audioNote.transcriptFilename);
+			}
+		}
+		const translationFilesContents = await this.loadFiles(translationFilenames);
+
+		// Must go from bottom to top so the editor position doesn't change!
+		audioNotes.reverse()
+		for (const audioNote of audioNotes) {
+			if (audioNote.needsToBeUpdated) {
+				if (!audioNote.transcriptFilename) {
+					new Notice("No transcript file defined for audio note.", 10000);
+					continue;
+				}
+				const transcript = translationFilesContents.get(audioNote.transcriptFilename);
+
+				const newAudioNoteSrc = this.createAudioNoteSrc(audioNote, transcript, view);
+				if (newAudioNoteSrc) {
+					const [srcStart, srcEnd] = this._getAudioNoteStartAndEndPositionInEditor(audioNote);
+					// Perform the replacement.
+					if (srcStart && srcEnd) {
+						view.editor.replaceRange(newAudioNoteSrc, srcStart, srcEnd);
+					}
+				}
+			}
+		}
+
+		// Tell the user the generation is complete.
+		new Notice('Audio Note generation complete!');
+	}
+
+	// Identify the start and end position of the audio note in the .md file.
+	private _getAudioNoteStartAndEndPositionInEditor(audioNote: AudioNoteWithPositionInfo): [{ line: number, ch: number }, { line: number, ch: number }] | [undefined, undefined] {
+		// Update the view.editor.
+		if (audioNote.startLineNumber === undefined || audioNote.endLineNumber === undefined || audioNote.endChNumber === undefined) {
+			console.error(`Audio Notes: Could not find line numbers of audio-note...? This should be impossible.`)
+			return [undefined, undefined];
+		}
+
+		const startLine = audioNote.startLineNumber + 1;
+		const startCh = 0;
+		const endLine = audioNote.endLineNumber - 1;
+		const endCh = audioNote.endChNumber;
+		const srcStart = { line: startLine, ch: startCh };
+		const srcEnd = { line: endLine, ch: endCh };
+		return [srcStart, srcEnd];
+	}
+
+	async regenerateCurrentAudioNote(view: MarkdownView) {
+		new Notice('Regenerating Current Audio Note...');
+
+		// Get the file contents of the current markdown file.
+		const currentMdFilename = view.file.path;
+		const fileContents = await this.loadFiles([currentMdFilename]);
+		const currentMdFileContents = fileContents.get(currentMdFilename);
+		if (currentMdFileContents === undefined) {
+			console.error(`Audio Notes: Could not find current .md: ${currentMdFilename}...? This should be impossible.`);
+			return undefined;
+		}
+		const audioNotes: AudioNoteWithPositionInfo[] = this.getAudioNoteBlocks(currentMdFileContents);
+
+		// Get the editor's current position
+		const from = view.editor.getCursor("from");
+		const to = view.editor.getCursor("to");
+
+		// Identify which audio note the user's cursor is in.
+		let audioNote: AudioNoteWithPositionInfo | undefined = undefined;
+		for (const note of audioNotes) {
+			// There are two cases, one of which we will ignore. The one we are ignoring is when the user highlights the entirety of a note.
+			// The other case, which we will cover, is when the user's cusor/selection is entirely within a note.
+			if (from.line >= note.startLineNumber && from.ch >= 0 && to.line <= note.endLineNumber && to.ch <= note.endChNumber) {
+				audioNote = note;
+				break
+			}
+		}
+		if (audioNote === undefined) {
+			console.warn("Audio Notes: The user's cursor is not inside an audio note")
+			new Notice("Please place your cursor inside the Audio Note you want to generate", 10000);
+			return undefined;
+		}
+		if (audioNote.quote) {
+			console.warn("Audio Notes: The user tried to generate an audio note with an existing quote")
+			new Notice("Please delete the quote for the audio note before regenerating it", 10000);
+			return undefined;
+		}
+
+		// Load the transcript.
+		if (!audioNote.transcriptFilename) {
+			return;
+		}
+		let transcript: string | undefined = undefined;
+		if (audioNote.transcriptFilename !== undefined) {
+			const translationFilesContents = await this.loadFiles([audioNote.transcriptFilename]);
+			transcript = translationFilesContents.get(audioNote.transcriptFilename);
+		}
+
+		const newAudioNoteSrc = this.createAudioNoteSrc(audioNote, transcript, view);
+		if (newAudioNoteSrc) {
+			const [srcStart, srcEnd] = this._getAudioNoteStartAndEndPositionInEditor(audioNote);
+			// Perform the replacement.
+			if (srcStart && srcEnd) {
+				view.editor.replaceRange(newAudioNoteSrc, srcStart, srcEnd);
+			}
+			new Notice("Created new audio note", 3000);
+		}
+
+		// Tell the user the generation is complete.
+		new Notice('Audio Note generation complete!');
 	}
 
 	onunload() {
