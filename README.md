@@ -44,7 +44,7 @@ Start listening!
 
 When you want to take a note on what was said, pause the audio and run the command `Create new Audio Note at current time (+/- 15 seconds)`. A new audio note will be added at the end of the file, based on the current time of the first audio player in the file.
 
-Edit the newly created audio note to your heart's content! You can change the text and the start/end times of the audio segment.
+Edit the newly created audio note to your heart's content! You can change the text and the start/end times of the audio segment. If you extend the audio and need to regenerate the quote to include more words, you can delete the quote then use the command `Regenerate Current Audio Note` or `Regenerate All Audio Notes` to re-create the quote from the start/end times you set.
 
 Listen to your note any time, anywhere :)
 
