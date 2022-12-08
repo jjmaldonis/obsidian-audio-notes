@@ -261,31 +261,31 @@ class AudioNoteWithPositionInfo extends AudioNote {
 
 
 export class AudioNotesSettingsTab extends PluginSettingTab {
-  plugin: AutomaticAudioNotes;
+	plugin: AutomaticAudioNotes;
 
-  constructor(app: App, plugin: AutomaticAudioNotes) {
-    super(app, plugin);
-    this.plugin = plugin;
-  }
+	constructor(app: App, plugin: AutomaticAudioNotes) {
+		super(app, plugin);
+		this.plugin = plugin;
+	}
 
-  display(): void {
-    let { containerEl } = this;
+	display(): void {
+		let { containerEl } = this;
 
-    containerEl.empty();
+		containerEl.empty();
 
-    new Setting(containerEl)
-      .setName("+/- duration")
-      .setDesc("The amount of time to fastword and rewind when creating new audio notes")
-      .addText((text) =>
-        text
-          .setPlaceholder("30")
-          .setValue(this.plugin.settings.plusMinusDuration)
-          .onChange(async (value) => {
-            this.plugin.settings.plusMinusDuration = value;
-            await this.plugin.saveSettings();
-          })
-      );
-  }
+		new Setting(containerEl)
+			.setName("+/- duration")
+			.setDesc("The amount of time to fastword and rewind when creating new audio notes")
+			.addText((text) =>
+				text
+					.setPlaceholder("30")
+					.setValue(this.plugin.settings.plusMinusDuration)
+					.onChange(async (value) => {
+						this.plugin.settings.plusMinusDuration = value;
+						await this.plugin.saveSettings();
+					})
+			);
+	}
 }
 
 interface AudioNotesSettings {
@@ -301,6 +301,10 @@ export default class AutomaticAudioNotes extends Plugin {
 	knownCurrentTimes: Map<string, number> = new Map();
 	knownAudioPlayers: DefaultMap<string, HTMLElement[]> = new DefaultMap(() => []);
 	currentlyPlayingAudioFakeUuid: string | null = null;
+
+	private get isDesktop(): boolean {
+		return Platform.isDesktop || Platform.isDesktopApp || Platform.isMacOS;
+	}
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
@@ -382,19 +386,19 @@ export default class AutomaticAudioNotes extends Plugin {
 	}
 
 	replaceElementWithError(el: HTMLElement, error: Error): void {
-			const pre = createEl("pre");
-			pre.createEl("code", {
-				attr: {
-					style: `color: var(--text-error) !important`
-				}
-			}).createSpan({
-				text:
-					"There was an error rendering the audio note:\n" +
-					error +
-					"\n\n" +
-					`${error}`
-			});
-			el.replaceWith(pre);
+		const pre = createEl("pre");
+		pre.createEl("code", {
+			attr: {
+				style: `color: var(--text-error) !important`
+			}
+		}).createSpan({
+			text:
+				"There was an error rendering the audio note:\n" +
+				error +
+				"\n\n" +
+				`${error}`
+		});
+		el.replaceWith(pre);
 	}
 
 	async loadFiles(filenames: string[]): Promise<Map<string, string>> {
@@ -641,27 +645,50 @@ export default class AutomaticAudioNotes extends Plugin {
 			seeker.value = audio.currentTime.toString();
 		}
 
+		let timeout: NodeJS.Timeout;
 		const holdit = (btn: HTMLButtonElement, action: () => void, start: number, speedup: number, forward: boolean) => {
-			let timeout: NodeJS.Timeout;
 			let mousedownTimeoutStarted = false;
-			let currenSpeed = start;
+			let currentSpeed = start;
 
 			var repeat = function () {
 				action();
-				timeout = setTimeout(repeat, currenSpeed);
-				if (currenSpeed > 75) { // don't go too fast!
-					currenSpeed = currenSpeed / speedup;
+				timeout = setTimeout(repeat, currentSpeed);
+				if (currentSpeed > 75) { // don't go too fast!
+					currentSpeed = currentSpeed / speedup;
 				}
 			}
 
-			btn.onmousedown = function () {
-				mousedownTimeoutStarted = true;
-				repeat();
-			}
+			// Supposedly `onpointerup` and `onpointerdown` work on both touch and non touch devices, but I haven't tested.
+			if (this.isDesktop) {
+				btn.onmousedown = function () {
+					mousedownTimeoutStarted = true;
+					repeat();
+				}
 
-			btn.onmouseup = function () {
-				clearTimeout(timeout);
-				currenSpeed = start;
+				btn.onmouseup = function () {
+					if (timeout) {
+						clearTimeout(timeout);
+					}
+					currentSpeed = start;
+				}
+			} else {
+				btn.ontouchstart = function () {
+					mousedownTimeoutStarted = true;
+					repeat();
+				}
+
+				btn.ontouchend = function () {
+					if (timeout) {
+						clearTimeout(timeout);
+					}
+					currentSpeed = start;
+				}
+				btn.ontouchcancel = function () {
+					if (timeout) {
+						clearTimeout(timeout);
+					}
+					currentSpeed = start;
+				}
 			}
 
 			btn.onClickEvent(() => {
@@ -703,6 +730,9 @@ export default class AutomaticAudioNotes extends Plugin {
 			updateTime(timeSpan, audio);
 			updateSeeker(audio, seeker);
 			this.updateCurrentTimeOfAudio(audio);
+			if (timeout) {
+				clearTimeout(timeout);
+			}
 		});
 
 		if (audio.readyState > 0) {
@@ -719,6 +749,9 @@ export default class AutomaticAudioNotes extends Plugin {
 			updateTime(timeSpan, audio);
 			updateSeeker(audio, seeker);
 			this.updateCurrentTimeOfAudio(audio);
+			if (timeout) {
+				clearTimeout(timeout);
+			}
 		});
 
 		audio.addEventListener('play', (ev: Event) => {
@@ -726,12 +759,18 @@ export default class AutomaticAudioNotes extends Plugin {
 			if (playIcon !== undefined && pauseIcon !== undefined) {
 				playIcon.parentNode?.replaceChild(pauseIcon, playIcon);
 			}
+			if (timeout) {
+				clearTimeout(timeout);
+			}
 		});
 
 		audio.addEventListener('pause', (ev: Event) => {
 			this.currentlyPlayingAudioFakeUuid = null;
 			if (playIcon !== undefined && pauseIcon !== undefined) {
 				pauseIcon.parentNode?.replaceChild(playIcon, pauseIcon);
+			}
+			if (timeout) {
+				clearTimeout(timeout);
 			}
 		});
 
@@ -797,7 +836,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		}
 
 		// Create the container div.
-		if (Platform.isDesktop || Platform.isDesktopApp || Platform.isMacOS) { // desktop
+		if (this.isDesktop) { // desktop
 			const audioPlayerContainer = createDiv({ attr: { id: `audio-player-container-${fakeUuid}` }, cls: "audio-player-container" })
 			audioPlayerContainer.appendChild(audio);
 			audioPlayerContainer.appendChild(playButton);
@@ -1043,8 +1082,8 @@ export default class AutomaticAudioNotes extends Plugin {
 		if (quoteText) {
 			// For some reason double spaces are often in the text. Remove them because they get removed by the HTML rendering anyway.
 			let i = 0;
-			while(quoteText.includes("  ")) {
-				quoteText = quoteText.replace(new RegExp("  "), " ");  
+			while (quoteText.includes("  ")) {
+				quoteText = quoteText.replace(new RegExp("  "), " ");
 				// Make sure we don't hit an infinite loop, even though it should be impossible.
 				i += 1;
 				if (i > 100) {
