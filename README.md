@@ -123,4 +123,4 @@ print("Done!")
 
 To easily take notes on your phone, you can generate the audio notes in a note, then sync the note to your computer/tablet and revise the audio note there.
 
-[![Mobile Example](assets/audio-notes-example-mobile_exported_0.jpg)](assets/audio-notes-example-mobile.mp4) 
+[![Mobile Example](assets/audio-notes-example-mobile_exported_0.jpg)](https://audio-notes-public.s3.amazonaws.com/audio-notes-example-mobile.mp4) 
