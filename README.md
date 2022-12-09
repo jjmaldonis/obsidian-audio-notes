@@ -121,6 +121,6 @@ print("Done!")
 
 (Only tested on Android)
 
-One easy way to take notes on your 
+To easily take notes on your phone, you can generate the audio notes in a note, then sync the note to your computer/tablet and revise the audio note there.
 
-<video src="assets\audio-notes-example-mobile.mp4" width=300/>
+[![Mobile Example](assets/audio-notes-example-mobile_exported_0.jpg)](assets/audio-notes-example-mobile.mp4) 
