@@ -116,3 +116,11 @@ with open(output_filename, "w") as f:
 
 print("Done!")
 ```
+
+## It Works on Mobile As Well
+
+(Only tested on Android)
+
+One easy way to take notes on your 
+
+<video src="assets\audio-notes-example-mobile.mp4" width=300/>
