@@ -1,4 +1,4 @@
-![version](https://img.shields.io/badge/version-0.1.4-blue)
+![version](https://img.shields.io/badge/version-0.1.5-blue)
 ![license](https://img.shields.io/badge/license-MIT-brightgreen)
 <a href='https://ko-fi.com/jjmaldonis' target='_blank'><img height='20' style='border:0px;height:26px;margin-bottom:-2.5px;' src='https://az743702.vo.msecnd.net/cdn/kofi3.png?v=0' border='0' alt='Buy Me a Coffee :)' /></a>
 
