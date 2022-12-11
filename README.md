@@ -117,10 +117,22 @@ with open(output_filename, "w") as f:
 print("Done!")
 ```
 
-## It Works on Mobile As Well
+## Using on Mobile
 
 (Only tested on Android)
 
-To easily take notes on your phone, you can generate the audio notes in a note, then sync the note to your computer/tablet and revise the audio note there.
+I typically listen to a podcast or other .mp3 on my phone, so taking audio notes on my phone is critical. This is the best way I've found to take notes:
 
-[![Mobile Example](assets/audio-notes-example-mobile_exported_0.jpg)](https://audio-notes-public.s3.amazonaws.com/audio-notes-example-mobile.mp4) 
+1. Install Audio Notes on my phone, and pin the "Create new Audio Note ..." command to the top of my commands (this is a core plugin).
+2. From my computer, I preload the .mp3, transcript, and starting note in my vault.
+3. I sync my vault to my phone.
+4. Open Obsidian on my phone and go for a walk, listening to the .mp3 from within obsidian.
+5. Pause the audio when I hear something I want to remember, swipe down, and create a new audio note at the end of the note. I can add any personal thoughts at this time below the newly-generated note.
+6. When I'm done, I sync my note back to my computer and edit the quotes.
+7. Finish the note by highlighting or summarizing the things I most want to remember.
+
+The above workflow follows the CODE process by [Tiago Forte](https://fortelabs.com/): Capture, Organize, Distill, and Express. You can quickly capture the information you care about and can come back to it later to organize, distill, and express it without losing your train of though on the podcast/audio you're listening to. This helps to avoid the [Doorway effect](https://en.wikipedia.org/wiki/Doorway_effect#:~:text=The%20doorway%20effect%20is%20a,remained%20in%20the%20same%20place.).
+
+Below is a vidoe of using <strong>Audio Notes</strong> on your phone.
+
+<img src="assets/audio-notes-example-mobile_exported_0.jpg" href="https://audio-notes-public.s3.amazonaws.com/audio-notes-example-mobile.mp4" style="width:200px"/>
