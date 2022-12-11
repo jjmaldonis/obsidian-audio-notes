@@ -1365,9 +1365,10 @@ export default class AutomaticAudioNotes extends Plugin {
 		// Some basic info about summarization, with an example API call, can be found here: https://beta.openai.com/examples/default-tldr-summary
 
 		// For English text, 1 token is approximately 4 characters or 0.75 words.
+		const fractionOfPrompt: number = 0.5;
 		const minCharacters = 75;
 		const maxCharacters = 500;
-		let tokens = toSummarize.length;
+		let tokens = Math.ceil(toSummarize.length * fractionOfPrompt);
 		if (tokens < minCharacters) {
 			tokens = minCharacters;
 		} else if (tokens > maxCharacters) {
