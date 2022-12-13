@@ -13,12 +13,16 @@ import {
 	Editor,
 	request,
 } from 'obsidian';
-import { IconPrefix } from "@fortawesome/free-regular-svg-icons";
+
+// Load Font-Awesome stuff
 import type { IconName } from "@fortawesome/fontawesome-svg-core";
-import {
-	findIconDefinition,
-	icon as getFAIcon,
-} from "@fortawesome/fontawesome-svg-core";
+import { library } from "@fortawesome/fontawesome-svg-core";
+import { findIconDefinition, icon as getFAIcon } from "@fortawesome/fontawesome-svg-core";
+import { faCopy, far, IconPrefix } from "@fortawesome/free-regular-svg-icons";
+import { fas } from "@fortawesome/free-solid-svg-icons";
+import { fab } from "@fortawesome/free-brands-svg-icons";
+// Load the actual library so the icons render.
+library.add(fas, far, fab, faCopy);
 
 
 class DefaultMap<K, V> extends Map<K, V> {

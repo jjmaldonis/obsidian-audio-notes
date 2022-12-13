@@ -6,8 +6,6 @@
 
 <strong>Audio Notes</strong> is a plugin for the note-taking app Obsidian.
 
-In order to apply the property styling for audio notes, you must have the [Admonition](https://github.com/valentine195/obsidian-admonition) plugin installed.
-
 ## What are Audio Notes?
 
 <strong>Audio Notes</strong> makes it easy to take notes on audio files as you listen to them.
@@ -23,7 +21,7 @@ If you use the speech recognition software described below, you can generate tra
 Audio notes look like this:
 ![](assets/renderedNote.png)
 
-To create one, you must specify an audio file and may set a few other attributes. All attributes are set using an Admonition-like code block (thanks [Admonition](https://github.com/valentine195/obsidian-admonition)!):
+To create one, you must specify an audio file and may set a few other attributes. All attributes are set using a callout-like code block:
 ![](assets/unrenderedNote.png)
 
 * `audio`: (required) The audio filename. It can be a local file or a link to an audio file online.
@@ -36,7 +34,7 @@ To create one, you must specify an audio file and may set a few other attributes
 
 Find the .mp3 file you want to take notes on and move it into your vault. You may want to generate a transcript using the Python code at the end of this README to allow <strong>Audio Notes</strong> to automatically insert the transcript of the audio.
 
-Once your .mp3 file is in your vault, create a new note and create an Audio Note by writing an Admonition-like code block. Here is an example:
+Once your .mp3 file is in your vault, create a new note and create an Audio Note by writing an callout-like code block. Here is an example:
 
     ```audio-note
     audio: assets/276-paul-grahams-essays-part-2-ads.mp3
