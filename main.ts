@@ -128,14 +128,11 @@ class AudioBlock {
 		public audioFilename: string,
 		private _start: number,
 		private _end: number,
+		private _speed: number,
 	) { }
 
 	get start(): number {
 		return this._start;
-	}
-
-	get end(): number {
-		return this._end;
 	}
 
 	set start(value: number) {
@@ -145,9 +142,21 @@ class AudioBlock {
 		this._start = value;
 	}
 
+	get end(): number {
+		return this._end;
+	}
+
 	set end(value: number) {
 		// There is no way to check the duration of the audio file unfortunately.
 		this._end = value;
+	}
+
+	get speed(): number {
+		return this._speed;
+	}
+
+	set speed(value: number) {
+		this._speed = value;
 	}
 }
 
@@ -156,9 +165,10 @@ class AudioBlockWithCurrentTime extends AudioBlock {
 		audioFilename: string,
 		start: number,
 		end: number,
+		speed: number,
 		public currentTime: number,
 	) {
-		super(audioFilename, start, end);
+		super(audioFilename, start, end, speed);
 	}
 }
 
@@ -169,13 +179,14 @@ class AudioNote extends AudioBlock {
 		public audioFilename: string,
 		_start: number, // defaults to 0
 		_end: number, // defaults to Infinity
+		_speed: number,
 		public transcriptFilename: string | undefined,
 		public quoteCreatedForStart: number | undefined,
 		public quoteCreatedForEnd: number | undefined,
 		public quote: string | undefined,
 		public extendAudio: boolean,
 	) {
-		super(audioFilename, _start, _end);
+		super(audioFilename, _start, _end, _speed);
 	}
 
 	get needsToBeUpdated(): boolean {
@@ -236,6 +247,7 @@ class AudioNoteWithPositionInfo extends AudioNote {
 		public audioFilename: string,
 		_start: number,
 		_end: number,
+		_speed: number,
 		public transcriptFilename: string | undefined,
 		public quoteCreatedForStart: number | undefined,
 		public quoteCreatedForEnd: number | undefined,
@@ -244,7 +256,7 @@ class AudioNoteWithPositionInfo extends AudioNote {
 		public startLineNumber: number,
 		public endLineNumber: number,
 		public endChNumber: number,
-	) { super(title, author, audioFilename, _start, _end, transcriptFilename, quoteCreatedForStart, quoteCreatedForEnd, quote, extendAudio); }
+	) { super(title, author, audioFilename, _start, _end, _speed, transcriptFilename, quoteCreatedForStart, quoteCreatedForEnd, quote, extendAudio); }
 
 	static fromAudioNote(audioNote: AudioNote, startLineNumber: number, endLineNumber: number, endChNumber: number): AudioNoteWithPositionInfo {
 		return new AudioNoteWithPositionInfo(
@@ -253,6 +265,7 @@ class AudioNoteWithPositionInfo extends AudioNote {
 			audioNote.audioFilename,
 			audioNote.start,
 			audioNote.end,
+			audioNote.speed,
 			audioNote.transcriptFilename,
 			audioNote.quoteCreatedForStart,
 			audioNote.quoteCreatedForEnd,
@@ -681,6 +694,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		}
 
 		const audio = new Audio(audioSrcPath);
+		audio.playbackRate = audioNote.speed;
 
 		const playButton = createEl("button", { attr: { id: `play-icon-${fakeUuid}` }, cls: "audio-note-play-button" });
 		const playIcon = getIcon("play");
@@ -1027,27 +1041,38 @@ export default class AutomaticAudioNotes extends Plugin {
 		return allAudioNotes;
 	}
 
-	private _getStartAndEndFromBracketString(timeInfo: string): [number, number] {
-		if (timeInfo.startsWith("t=")) {
-			timeInfo = timeInfo.slice(2, undefined);
-		}
-		if (timeInfo.startsWith("[")) {
-			timeInfo = timeInfo.slice(1, undefined);
-		}
-		if (timeInfo.endsWith("]")) {
-			timeInfo = timeInfo.slice(0, timeInfo.length - 1);
-		}
+	private _getStartAndEndFromBracketString(timeInfo: string): [number, number, number] {
+		const split = timeInfo.split("&");
 		let start = undefined;
 		let end = undefined;
-		if (timeInfo.includes(",")) {
-			[start, end] = timeInfo.split(",")
-			start = timeStringToSeconds(start);
-			end = timeStringToSeconds(end);
-		} else {
-			start = timeStringToSeconds(timeInfo);
+		let speed = undefined;
+		for (let queryParam of split) {
+			if (queryParam.startsWith("t=")) {
+				queryParam = queryParam.slice(2, undefined);
+				if (queryParam.includes(",")) {
+					[start, end] = queryParam.split(",")
+					start = timeStringToSeconds(start);
+					end = timeStringToSeconds(end);
+				} else {
+					start = timeStringToSeconds(queryParam);
+					end = Infinity;
+				}
+			}
+			if (queryParam.startsWith("s=")) {
+				queryParam = queryParam.slice(2, undefined);
+				speed = parseFloat(queryParam);
+			}
+		}
+		if (speed === undefined) {
+			speed = 1.0;
+		}
+		if (start === undefined) {
+			start = 0;
+		}
+		if (end === undefined) {
 			end = Infinity;
 		}
-		return [start, end];
+		return [start, end, speed];
 	}
 
 	createAudioNoteFromSrc(src: string): AudioNote {
@@ -1083,14 +1108,16 @@ export default class AutomaticAudioNotes extends Plugin {
 		let audioFilename = undefined;
 		let start = undefined;
 		let end = undefined;
+		let speed = undefined;
 		if (!audioLine.includes("#")) {
 			audioFilename = audioLine;
 			start = 0;
 			end = Infinity;
+			speed = 1.0;
 		} else {
 			audioFilename = audioLine.split("#")[0];
 			const timeInfo = audioLine.split("#")[1];
-			[start, end] = this._getStartAndEndFromBracketString(timeInfo);
+			[start, end, speed] = this._getStartAndEndFromBracketString(timeInfo);
 		}
 
 		// Go through the lines in the quote, and for any that start with a `-`, prepend the escape character.
@@ -1103,10 +1130,10 @@ export default class AutomaticAudioNotes extends Plugin {
 		let quoteCreatedForStart = undefined;
 		let quoteCreatedForEnd = undefined;
 		if (quoteCreatedForLine) {
-			[quoteCreatedForStart, quoteCreatedForEnd] = this._getStartAndEndFromBracketString(quoteCreatedForLine);
+			[quoteCreatedForStart, quoteCreatedForEnd, ] = this._getStartAndEndFromBracketString(quoteCreatedForLine);
 		}
 
-		const audioNote = new AudioNote(title, author, audioFilename, start, end, transcriptFilename, quoteCreatedForStart, quoteCreatedForEnd, quote, extendAudio);
+		const audioNote = new AudioNote(title, author, audioFilename, start, end, speed, transcriptFilename, quoteCreatedForStart, quoteCreatedForEnd, quote, extendAudio);
 		return audioNote;
 	}
 
@@ -1153,10 +1180,16 @@ export default class AutomaticAudioNotes extends Plugin {
 				newAudioNoteText += `,${secondsToTimeString(end, false)}`;
 			}
 		}
+		if (audioNote.speed !== 1.0) {
+			if (newAudioNoteText.includes("#")) {
+				newAudioNoteText += `&s=${audioNote.speed}`
+			} else {
+				newAudioNoteText += `#s=${audioNote.speed}`
+			}
+		}
 		newAudioNoteText += `\n`;
 		newAudioNoteText += `title: ${audioNote.title}\n`
 		newAudioNoteText += `transcript: ${audioNote.transcriptFilename}\n`
-		// newAudioNoteText += `quote-created-for: [${secondsToTimeString(start, false)},${secondsToTimeString(end, false)}]\n`;
 		newAudioNoteText += `---\n`
 		newAudioNoteText += `${newQuote}`;
 		return newAudioNoteText;

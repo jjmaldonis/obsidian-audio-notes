@@ -26,6 +26,7 @@ To create one, you must specify an audio file and may set a few other attributes
 
 * `audio`: (required) The audio filename. It can be a local file or a link to an audio file online.
   * (optional) You can add `#t=<start>,<end>` to the end of the filename to set the start and end time of the quote. For example, you can add `t=1:20,1:30` to start the audio segment at 1:20 and end at 1:30. If you do not want to set an end time, you can simply use `t=<start>`.
+  * (optional) You can add `&s=<playback-speed>` to the end of the filename, after `#t=<start>,<end>`, to specify the playback rate. If you do not have a start and end time, you can add `#s=<playback-speed>` to the end of the filename. The playback speed defaults to `1.0`.
 * `title`: (optional) The title of your note.
 * `transcript`: (optional) The filename of the transcript. See below for details.
 * `author`: (optional) The text to be used as the author of the quote.
