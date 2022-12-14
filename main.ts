@@ -657,12 +657,18 @@ export default class AutomaticAudioNotes extends Plugin {
 
 	private _getFullAudioSrcPath(audioNote: AudioNote): string | undefined {
 		let audioSrcPath: string | undefined = undefined;
-		const tfile = this.app.vault.getAbstractFileByPath(audioNote.audioFilename);
-		if (!tfile) {
-			console.error(`AudioNotes: Could not find audio file: ${audioNote.audioFilename}`)
-			return undefined;
+		// If the filename is a link, don't look for it in the vault.
+		if (audioNote.audioFilename.startsWith("https")) {
+			audioSrcPath = audioNote.audioFilename;
+		} else {
+			// If the file isn't a link, look for it in the vault and get its full file path.
+			const tfile = this.app.vault.getAbstractFileByPath(audioNote.audioFilename);
+			if (!tfile) {
+				console.error(`AudioNotes: Could not find audio file: ${audioNote.audioFilename}`)
+				return undefined;
+			}
+			audioSrcPath = this.app.vault.getResourcePath(tfile as TFile);
 		}
-		audioSrcPath = this.app.vault.getResourcePath(tfile as TFile);
 		if (audioSrcPath.includes("?")) {
 			audioSrcPath = audioSrcPath.slice(0, audioSrcPath.indexOf("?"));
 		}
@@ -1130,7 +1136,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		let quoteCreatedForStart = undefined;
 		let quoteCreatedForEnd = undefined;
 		if (quoteCreatedForLine) {
-			[quoteCreatedForStart, quoteCreatedForEnd, ] = this._getStartAndEndFromBracketString(quoteCreatedForLine);
+			[quoteCreatedForStart, quoteCreatedForEnd,] = this._getStartAndEndFromBracketString(quoteCreatedForLine);
 		}
 
 		const audioNote = new AudioNote(title, author, audioFilename, start, end, speed, transcriptFilename, quoteCreatedForStart, quoteCreatedForEnd, quote, extendAudio);
