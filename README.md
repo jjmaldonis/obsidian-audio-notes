@@ -51,6 +51,24 @@ Edit the newly created audio note to your heart's content! You can change the te
 
 Listen to your note any time, anywhere :)
 
+#### Bind Hotkeys to Contro Audio Player
+
+If you're on your computer, you can use hotkeys to control the currently-playing audio player. Below are the hotkeys I use:
+
+- `Ctrl + Shift + Right Arrow`: Skip forward
+- `Ctrl + Shift + Left Arrow`: Skip backward
+- `Ctrl + Shift + Up Arrow`: Speed up
+- `Ctrl + Shift + Down Arrow`: Slow down
+- `Ctrl + Shift + =`: Reset player to start time
+- `Ctrl + Shift + Space`: Toggle play/pause
+- `Ctrl + Shift + N`: Create new audio note at current time
+- `Ctrl + Shift + G`: Regenerate current audio note
+- `Ctrl + Shift + S`: Summarize selection using OpenAI
+
+#### Summarize Text
+
+As an addon, a command to summary text is included in the plugin. You can select a body of text and run the command `Summarize selection using OpenAI` to summarize the text you have selected. Your OpenAI API key must be set in the settings.
+
 ## Generating a Transcript
 
 If you have an audio file on your computer, you can use [OpenAI Whisper](https://github.com/openai/whisper) to generate a transcript. At the time of writing this plugin, OpenAI Whisper is the state-of-the-art speech recognition library.
