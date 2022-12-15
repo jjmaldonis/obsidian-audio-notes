@@ -311,16 +311,34 @@ export class AudioNotesSettingsTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Skip forward/backward (seconds)")
-			.setDesc("The amount of time to fast forward or rewind when pressing the forward/backward buttons on the audio player")
+			.setName("Skip backward (seconds)")
+			.setDesc("The amount of time to skip backward when pressing the backward button on the audio player")
 			.addText((text) =>
 				text
 					.setPlaceholder("5")
-					.setValue(this.plugin.settings.forwardBackwardStep)
+					.setValue(this.plugin.settings.forwardStep)
 					.onChange(async (value) => {
 						try {
 							parseFloat(value);
-							this.plugin.settings.forwardBackwardStep = value;
+							this.plugin.settings.forwardStep = value;
+							await this.plugin.saveSettings();
+						} catch {
+							new Notice("Must be a number");
+						}
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Skip forward (seconds)")
+			.setDesc("The amount of time to skip forward when pressing the forward button on the audio player")
+			.addText((text) =>
+				text
+					.setPlaceholder("15")
+					.setValue(this.plugin.settings.backwardStep)
+					.onChange(async (value) => {
+						try {
+							parseFloat(value);
+							this.plugin.settings.backwardStep = value;
 							await this.plugin.saveSettings();
 						} catch {
 							new Notice("Must be a number");
@@ -344,13 +362,15 @@ export class AudioNotesSettingsTab extends PluginSettingTab {
 
 interface AudioNotesSettings {
 	plusMinusDuration: string;
-	forwardBackwardStep: string;
+	backwardStep: string;
+	forwardStep: string;
 	openAiApiKey: string;
 }
 
 const DEFAULT_SETTINGS: Partial<AudioNotesSettings> = {
 	plusMinusDuration: "30",
-	forwardBackwardStep: "5",
+	backwardStep: "5",
+	forwardStep: "15",
 	openAiApiKey: "",
 };
 
@@ -359,6 +379,41 @@ export default class AutomaticAudioNotes extends Plugin {
 	knownCurrentTimes: Map<string, number> = new Map();
 	knownAudioPlayers: DefaultMap<string, HTMLElement[]> = new DefaultMap(() => []);
 	currentlyPlayingAudioFakeUuid: string | null = null;
+
+	private getAudioPlayerIdentify(element: HTMLElement): string {
+		const knownPlayerFakeUuid = element.id.split("-")[element.id.split("-").length - 1];
+		if (!knownPlayerFakeUuid) {
+			console.log(element);
+			throw new Error("Could not find audio's identifier from the above element.")
+		}
+		return knownPlayerFakeUuid;
+	}
+
+	private getCurrentlyPlayerAudioElement(): HTMLMediaElement | null {
+		if (this.currentlyPlayingAudioFakeUuid) {
+			const knownPlayers = this.knownAudioPlayers.get(this.currentlyPlayingAudioFakeUuid);
+			for (const knownPlayer of knownPlayers) {
+				const knownPlayerFakeUuid = this.getAudioPlayerIdentify(knownPlayer);
+				if (knownPlayerFakeUuid === this.currentlyPlayingAudioFakeUuid) {
+					const player = (knownPlayer.find("audio")! as HTMLMediaElement);
+					if (player) {
+						return player;
+					}
+				}
+			}
+		}
+		// If there is only one known media player, return it.
+		const allPlayers: HTMLElement[] = [];
+		for (const [fakeUuid, players] of this.knownAudioPlayers.entries()) {
+			allPlayers.push(...players);
+		}
+		if (allPlayers.length === 1) {
+			const player = (allPlayers[0].find("audio")! as HTMLMediaElement);
+			return player;
+		}
+		console.log(this.knownAudioPlayers);
+		throw new Error(`Could not find currently playing audio with ID: ${this.currentlyPlayingAudioFakeUuid}`);
+	}
 
 	private get isDesktop(): boolean {
 		return Platform.isDesktop || Platform.isDesktopApp || Platform.isMacOS;
@@ -380,8 +435,12 @@ export default class AutomaticAudioNotes extends Plugin {
 		return parseFloat(this.settings.plusMinusDuration);
 	}
 
-	getSettingsForwardBackwardStep(): number {
-		return parseFloat(this.settings.forwardBackwardStep);
+	getSettingsBackwardStep(): number {
+		return parseFloat(this.settings.backwardStep);
+	}
+
+	getSettingsForwardStep(): number {
+		return parseFloat(this.settings.forwardStep);
 	}
 
 	getSettingsOpenAiApiKey(): string {
@@ -391,7 +450,7 @@ export default class AutomaticAudioNotes extends Plugin {
 	updateCurrentTimeOfAudio(audio: HTMLMediaElement): void {
 		// There is a minor bug if users delete a src and readd the same src, because the currentTime will change on the new src.
 		this.knownCurrentTimes.set(audio.src, audio.currentTime);
-		const knownAudios = this.knownAudioPlayers.get(audio.src);
+		const knownAudios = this.knownAudioPlayers.get(this.getAudioPlayerIdentify(audio));
 		for (const knownPlayer of knownAudios) {
 			const knownAudio = (knownPlayer.find("audio")! as HTMLMediaElement);
 			const knownPlayerFakeUuid = knownPlayer.id.split("-")[knownPlayer.id.split("-").length - 1];
@@ -507,6 +566,84 @@ export default class AutomaticAudioNotes extends Plugin {
 			}
 		});
 
+		this.addCommand({
+			id: 'toggle-play',
+			name: 'Toggle Play/Pause',
+			callback: async () => {
+				const audioPlayer = this.getCurrentlyPlayerAudioElement();
+				if (audioPlayer) {
+					if (audioPlayer.paused || audioPlayer.ended) {
+						audioPlayer.play();
+					} else {
+						audioPlayer.pause();
+					}
+				}
+			}
+		});
+
+		this.addCommand({
+			id: 'skip-backward',
+			name: 'Skip Backward',
+			callback: async () => {
+				const audioPlayer = this.getCurrentlyPlayerAudioElement();
+				if (audioPlayer) {
+					audioPlayer.currentTime -= this.getSettingsBackwardStep();
+				}
+			}
+		});
+
+		this.addCommand({
+			id: 'skip-forward',
+			name: 'Skip Forward',
+			callback: async () => {
+				const audioPlayer = this.getCurrentlyPlayerAudioElement();
+				if (audioPlayer) {
+					audioPlayer.currentTime += this.getSettingsForwardStep();
+				}
+			}
+		});
+
+		this.addCommand({
+			id: 'slow-down-playback',
+			name: 'Slow Down Playback',
+			callback: async () => {
+				const audioPlayer = this.getCurrentlyPlayerAudioElement();
+				if (audioPlayer) {
+					audioPlayer.playbackRate -= 0.1;
+					new Notice(`Set playback speed to ${Math.round(audioPlayer.playbackRate * 10)/ 10}`, 1000);
+				}
+			}
+		});
+
+		this.addCommand({
+			id: 'speed-up-playback',
+			name: 'Speed Up Playback',
+			callback: async () => {
+				const audioPlayer = this.getCurrentlyPlayerAudioElement();
+				if (audioPlayer) {
+					audioPlayer.playbackRate += 0.1;
+					new Notice(`Set playback speed to ${Math.round(audioPlayer.playbackRate * 10)/ 10}`, 1000);
+				}
+			}
+		});
+
+		this.addCommand({
+			id: 'reset-player',
+			name: 'Reset Audio to Start',
+			callback: async () => {
+				const audioPlayer = this.getCurrentlyPlayerAudioElement();
+				if (audioPlayer) {
+					const audioLine = audioPlayer.src;
+					let start = 0;
+					if (audioLine.includes("#")) {
+						const timeInfo = audioLine.split("#")[1];
+						[start, ,] = this._getStartAndEndFromBracketString(timeInfo);
+					}
+					audioPlayer.currentTime = start;
+				}
+			}
+		});
+
 		// Register the HTML renderer.
 		this.registerMarkdownCodeBlockProcessor(
 			`audio-note`,
@@ -577,7 +714,7 @@ export default class AutomaticAudioNotes extends Plugin {
 				const generatedAudioDiv = this.getAudioHTMLMediaElementsInMode(theDiv);
 				const allPlayers = [...playersInSource, ...playersInReading, ...generatedAudioDiv];
 				for (const player of allPlayers) {
-					const knownPlayers: HTMLElement[] = this.knownAudioPlayers.get((player.find("audio") as HTMLMediaElement).src);
+					const knownPlayers: HTMLElement[] = this.knownAudioPlayers.get(this.getAudioPlayerIdentify(player));
 					const knownPlayerIds: string[] = knownPlayers.map(p => p.id);
 					if (!knownPlayerIds.includes(player.id)) {
 						knownPlayers.push(player)
@@ -700,6 +837,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		}
 
 		const audio = new Audio(audioSrcPath);
+		audio.id = `audio-player-${fakeUuid}`;
 		audio.playbackRate = audioNote.speed;
 
 		const playButton = createEl("button", { attr: { id: `play-icon-${fakeUuid}` }, cls: "audio-note-play-button" });
@@ -830,9 +968,9 @@ export default class AutomaticAudioNotes extends Plugin {
 			btn.onClickEvent(() => {
 				if (!mousedownTimeoutStarted) {
 					if (forward) {
-						audio.currentTime += this.getSettingsForwardBackwardStep();
+						audio.currentTime += this.getSettingsForwardStep();
 					} else {
-						audio.currentTime -= this.getSettingsForwardBackwardStep();
+						audio.currentTime -= this.getSettingsBackwardStep();
 					}
 					updateTime(timeSpan, audio);
 					updateSeeker(audio, seeker);
@@ -842,14 +980,14 @@ export default class AutomaticAudioNotes extends Plugin {
 		};
 
 		holdit(forwardButton, () => {
-			audio.currentTime += this.getSettingsForwardBackwardStep();
+			audio.currentTime += this.getSettingsForwardStep();
 			updateTime(timeSpan, audio);
 			updateSeeker(audio, seeker);
 			this.updateCurrentTimeOfAudio(audio);
 		}, 500, 1.2, true);
 
 		holdit(backwardButton, () => {
-			audio.currentTime -= this.getSettingsForwardBackwardStep();
+			audio.currentTime -= this.getSettingsBackwardStep();
 			updateTime(timeSpan, audio);
 			updateSeeker(audio, seeker);
 			this.updateCurrentTimeOfAudio(audio);
@@ -898,7 +1036,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		});
 
 		audio.addEventListener('pause', (ev: Event) => {
-			this.currentlyPlayingAudioFakeUuid = null;
+			// this.currentlyPlayingAudioFakeUuid = null;
 			if (playIcon !== undefined && pauseIcon !== undefined) {
 				pauseIcon.parentNode?.replaceChild(playIcon, pauseIcon);
 			}
@@ -908,7 +1046,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		});
 
 		audio.addEventListener('ended', (ev: Event) => {
-			this.currentlyPlayingAudioFakeUuid = null;
+			// this.currentlyPlayingAudioFakeUuid = null;
 			if (playIcon !== undefined && pauseIcon !== undefined) {
 				pauseIcon.parentNode?.replaceChild(playIcon, pauseIcon);
 			}
@@ -952,12 +1090,12 @@ export default class AutomaticAudioNotes extends Plugin {
 			navigator.mediaSession.setActionHandler('pause', () => { audio.pause(); });
 			navigator.mediaSession.setActionHandler('stop', () => { audio.pause(); });
 			navigator.mediaSession.setActionHandler('seekbackward', () => {
-				audio.currentTime -= this.getSettingsForwardBackwardStep();
+				audio.currentTime -= this.getSettingsBackwardStep();
 				updateTime(timeSpan, audio);
 				updateSeeker(audio, seeker);
 			});
 			navigator.mediaSession.setActionHandler('seekforward', () => {
-				audio.currentTime += this.getSettingsForwardBackwardStep();
+				audio.currentTime += this.getSettingsForwardStep();
 				updateTime(timeSpan, audio);
 				updateSeeker(audio, seeker);
 			});
