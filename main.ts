@@ -11,6 +11,7 @@ import {
 	App,
 	Setting,
 	Editor,
+	Modal,
 	request,
 } from 'obsidian';
 
@@ -357,6 +358,61 @@ export class AudioNotesSettingsTab extends PluginSettingTab {
 						this.plugin.settings.openAiApiKey = value;
 						await this.plugin.saveSettings();
 					}));
+
+		new Setting(containerEl)
+			.setName('Audio Notes API Key')
+			.setDesc('Provided by the library maintainer for paying users.Used to work with transcripts online.')
+			.addText((text) =>
+				text
+					.setPlaceholder('<your api key>')
+					.setValue(this.plugin.settings.audioNotesApiKey)
+					.onChange(async (value) => {
+						this.plugin.settings.audioNotesApiKey = value;
+						await this.plugin.saveSettings();
+					}));
+
+		containerEl.createEl("hr");
+		containerEl.createDiv("p").textContent = `MP3 files added for transcription:`;
+		request({
+			url: 'https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/users/files',
+			method: 'GET',
+			headers: {
+				'x-api-key': this.plugin.getSettingsAudioNotesApiKey(),
+			},
+			contentType: 'application/json',
+		}).then((result: string) => {
+			const urls: [string, string][] = JSON.parse(result);
+			if (urls.length > 0) {
+				const table = containerEl.createEl("table");
+				const tr = table.createEl("tr")
+				tr.createEl("th").textContent = "Status";
+				tr.createEl("th").textContent = "Length";
+				tr.createEl("th").textContent = "URL";
+				for (let i = 0; i < urls.length; i++) {
+					const [url, status] = urls[i];
+					const tr = table.createEl("tr")
+					tr.createEl("td").textContent = status;
+					const lengthTd = tr.createEl("td");
+					lengthTd.textContent = "???";
+					tr.createEl("td").textContent = url;
+
+					request({
+						url: 'https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/transcriptions',
+						method: 'GET',
+						headers: {
+							'x-api-key': this.plugin.getSettingsAudioNotesApiKey(),
+							"url": url,
+						},
+						contentType: 'application/json',
+					}).then((result: string) => {
+						const transcript = JSON.parse(result);
+						const lastSegment = transcript.segments[transcript.segments.length - 1];
+						lengthTd.textContent = secondsToTimeString(lastSegment.end, true);
+					});
+
+				}
+			}
+		})
 	}
 }
 
@@ -365,6 +421,7 @@ interface AudioNotesSettings {
 	backwardStep: string;
 	forwardStep: string;
 	openAiApiKey: string;
+	audioNotesApiKey: string;
 }
 
 const DEFAULT_SETTINGS: Partial<AudioNotesSettings> = {
@@ -372,7 +429,81 @@ const DEFAULT_SETTINGS: Partial<AudioNotesSettings> = {
 	backwardStep: "5",
 	forwardStep: "15",
 	openAiApiKey: "",
+	audioNotesApiKey: "",
 };
+
+
+
+export class EnqueueAudioModal extends Modal {
+	url: string;
+
+	constructor(app: App, private audioNotesApiKey: string) {
+		super(app);
+	}
+
+	onOpen() {
+		const { contentEl } = this;
+
+		contentEl.createEl("h1", { text: "Add an mp3 file to transcribe" });
+
+		new Setting(contentEl)
+			.setName("URL to .mp3 file")
+			.setDesc("The .mp3 must be publicly available, so it cannot require a login or other authentication to access.")
+			.addText((text) =>
+				text.onChange((value) => {
+					this.url = value
+				}));
+
+		const select = contentEl.createEl("select");
+		const tiny = select.createEl("option");
+		tiny.value = "tiny";
+		tiny.textContent = "tiny";
+		const base = select.createEl("option");
+		base.value = "base";
+		base.textContent = "base";
+		const small = select.createEl("option");
+		small.value = "small";
+		small.textContent = "small";
+		const medium = select.createEl("option");
+		medium.value = "medium";
+		medium.textContent = "medium";
+
+		new Setting(contentEl)
+			.addButton((btn) =>
+				btn
+					.setButtonText("Add to transcription queue")
+					.setCta()
+					.onClick(() => {
+						if (select.value) {
+							console.log(select.value)
+							// Make the request to enqueue the item
+							request({
+								url: 'https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/queue',
+								method: 'POST',
+								headers: {
+									'x-api-key': this.audioNotesApiKey,
+								},
+								contentType: 'application/json',
+								body: JSON.stringify({
+									"url": this.url,
+									"model": select.value,
+								})
+							}).then((r: any) => {
+								new Notice("Successfully queued .mp3 file for transcription");
+							}).finally(() => {
+								this.close();
+							});
+						}
+					})
+			);
+	}
+
+	onClose() {
+		let { contentEl } = this;
+		contentEl.empty();
+	}
+}
+
 
 export default class AutomaticAudioNotes extends Plugin {
 	settings: AudioNotesSettings;
@@ -445,6 +576,10 @@ export default class AutomaticAudioNotes extends Plugin {
 
 	getSettingsOpenAiApiKey(): string {
 		return this.settings.openAiApiKey;
+	}
+
+	getSettingsAudioNotesApiKey(): string {
+		return this.settings.audioNotesApiKey;
 	}
 
 	updateCurrentTimeOfAudio(audio: HTMLMediaElement): void {
@@ -610,7 +745,7 @@ export default class AutomaticAudioNotes extends Plugin {
 				const audioPlayer = this.getCurrentlyPlayerAudioElement();
 				if (audioPlayer) {
 					audioPlayer.playbackRate -= 0.1;
-					new Notice(`Set playback speed to ${Math.round(audioPlayer.playbackRate * 10)/ 10}`, 1000);
+					new Notice(`Set playback speed to ${Math.round(audioPlayer.playbackRate * 10) / 10}`, 1000);
 				}
 			}
 		});
@@ -622,7 +757,7 @@ export default class AutomaticAudioNotes extends Plugin {
 				const audioPlayer = this.getCurrentlyPlayerAudioElement();
 				if (audioPlayer) {
 					audioPlayer.playbackRate += 0.1;
-					new Notice(`Set playback speed to ${Math.round(audioPlayer.playbackRate * 10)/ 10}`, 1000);
+					new Notice(`Set playback speed to ${Math.round(audioPlayer.playbackRate * 10) / 10}`, 1000);
 				}
 			}
 		});
@@ -641,6 +776,14 @@ export default class AutomaticAudioNotes extends Plugin {
 					}
 					audioPlayer.currentTime = start;
 				}
+			}
+		});
+
+		this.addCommand({
+			id: 'add-audio-file-to-processing-queue',
+			name: 'Add audio file to transcription queue',
+			callback: async () => {
+				new EnqueueAudioModal(this.app, this.getSettingsAudioNotesApiKey()).open();
 			}
 		});
 
@@ -1389,12 +1532,30 @@ export default class AutomaticAudioNotes extends Plugin {
 		return audioNotes[0];
 	}
 
-	async createNewAudioNoteAtEndOfFile(view: MarkdownView, audioNote: AudioNote): Promise<void> {
+	async getTranscript(transcriptFilename: string | undefined, checkFiles: boolean = true): Promise<string | undefined> {
 		let transcript: string | undefined = undefined;
-		if (audioNote.transcriptFilename !== undefined) {
-			const translationFilesContents = await this.loadFiles([audioNote.transcriptFilename]);
-			transcript = translationFilesContents.get(audioNote.transcriptFilename);
+		if (transcriptFilename !== undefined) {
+			if (checkFiles) {
+				const translationFilesContents = await this.loadFiles([transcriptFilename]);
+				transcript = translationFilesContents.get(transcriptFilename);
+			}
+			if (transcript === undefined) {
+				transcript = await request({
+					url: 'https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/transcriptions',
+					method: 'GET',
+					headers: {
+						'x-api-key': this.getSettingsAudioNotesApiKey(),
+						"url": transcriptFilename,
+					},
+					contentType: 'application/json',
+				});
+			}
 		}
+		return transcript;
+	}
+
+	async createNewAudioNoteAtEndOfFile(view: MarkdownView, audioNote: AudioNote): Promise<void> {
+		let transcript: string | undefined = await this.getTranscript(audioNote.transcriptFilename);
 
 		const newAudioNoteSrc = this.createAudioNoteSrc(audioNote, transcript, view);
 		if (newAudioNoteSrc) {
@@ -1446,7 +1607,10 @@ export default class AutomaticAudioNotes extends Plugin {
 					new Notice("No transcript file defined for audio note.", 10000);
 					continue;
 				}
-				const transcript = translationFilesContents.get(audioNote.transcriptFilename);
+				let transcript = translationFilesContents.get(audioNote.transcriptFilename);
+				if (transcript === undefined) {
+					transcript = await this.getTranscript(audioNote.transcriptFilename, false);
+				}
 
 				const newAudioNoteSrc = this.createAudioNoteSrc(audioNote, transcript, view);
 				if (newAudioNoteSrc) {
@@ -1522,11 +1686,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		if (!audioNote.transcriptFilename) {
 			return;
 		}
-		let transcript: string | undefined = undefined;
-		if (audioNote.transcriptFilename !== undefined) {
-			const translationFilesContents = await this.loadFiles([audioNote.transcriptFilename]);
-			transcript = translationFilesContents.get(audioNote.transcriptFilename);
-		}
+		let transcript: string | undefined = await this.getTranscript(audioNote.transcriptFilename);
 
 		const newAudioNoteSrc = this.createAudioNoteSrc(audioNote, transcript, view);
 		if (newAudioNoteSrc) {
