@@ -8,47 +8,47 @@ If your plugin does not need CSS, delete this file.
 */
 
 .audio-note {
-    padding-right: 24px !important;
+	padding-right: 24px !important;
 }
 
 .audio-note audio {
-    margin-top: 16px;
+	margin-top: 16px;
 }
 
 .audio-note .audio-note-title {
-    padding: var(--callout-title-padding);
-    display: flex;
-    gap: var(--size-4-1);
-    font-size: var(--callout-title-size);
-    color: rgb(var(--callout-color));
-    line-height: var(--line-height-tight);
-    margin-bottom: 0px;
+	padding: var(--callout-title-padding);
+	display: flex;
+	gap: var(--size-4-1);
+	font-size: var(--callout-title-size);
+	color: rgb(var(--callout-color));
+	line-height: var(--line-height-tight);
+	margin-bottom: 0px;
 }
 
 .audio-note .audio-note-title .audio-note-icon {
-    flex: 0 0 auto;
-    display: flex;
-    align-self: center;
+	flex: 0 0 auto;
+	display: flex;
+	align-self: center;
 }
 
 .audio-note .audio-note-title .audio-note-title-inner {
-    font-weight: var(--bold-weight);
-    color: var(--callout-title-color);
+	font-weight: var(--bold-weight);
+	color: var(--callout-title-color);
 }
 
 .audio-note p {
-    margin-top: 16px;
-    margin-bottom: 0px;
+	margin-top: 16px;
+	margin-bottom: 0px;
 }
 
 .audio-note .audio-note-title p {
-    margin-top: 0px;
-    margin-bottom: 0px;
+	margin-top: 0px;
+	margin-bottom: 0px;
 }
 
 .audio-note .audio-note-author p {
-    margin-top: 4px;
-    margin-bottom: 0px;
+	margin-top: 4px;
+	margin-bottom: 0px;
 }
 
 /* */
@@ -57,217 +57,223 @@ If your plugin does not need CSS, delete this file.
 .audio-note-forward-button,
 .audio-note-backward-button,
 .audio-note-reset-button {
-    padding: 0;
-    border: 0;
-    background: transparent;
-    background-color: transparent !important;
-    box-shadow: none !important;
-    cursor: pointer;
-    outline: none;
-    width: fit-content;
-    height: 40px;
-    margin: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	background-color: transparent !important;
+	box-shadow: none !important;
+	cursor: pointer;
+	outline: none;
+	width: fit-content;
+	height: 40px;
+	margin: 0;
 }
 
 .audio-note-play-button {
-    float: left;
-    margin-left: 16px;
-    margin-right: 8px;
+	float: left;
+	margin-left: 16px;
+	margin-right: 8px;
 }
 
 .audio-note-backward-button {
-    margin-left: 16px;
-    margin-right: 0px;
+	margin-left: 16px;
+	margin-right: 0px;
 }
 
 .audio-note-forward-button {
-    margin-left: 12px;
-    margin-right: 0px;
+	margin-left: 12px;
+	margin-right: 0px;
 }
 
 .audio-note-reset-button {
-    margin-left: 12px;
-    margin-right: 24px;
+	margin-left: 12px;
+	margin-right: 24px;
 }
 
 .audio-note-mute-button {
-    margin-left: auto;
-    margin-right: 16px;
-    min-width: 15px;
-    max-width: 15px;
+	margin-left: auto;
+	margin-right: 16px;
+	min-width: 15px;
+	max-width: 15px;
 }
 
 .audio-player-container {
-    display: flex;
-    align-items: center;
-    margin-top: 16px;
-    margin-bottom: 4px;
-    margin-left: 8px;
-    margin-right: 8px;
-    --seek-before-width: 0%;
-    --volume-before-width: 100%;
-    --buffered-width: 0%;
-    position: relative;
-    width: calc(100% - 8px - 8px);
-    border: solid 1px rgba(255, 255, 255, 0.15);
-    border-radius: 12px;
+	display: flex;
+	align-items: center;
+	margin-top: 16px;
+	margin-bottom: 4px;
+	margin-left: 8px;
+	margin-right: 8px;
+	--seek-before-width: 0%;
+	--volume-before-width: 100%;
+	--buffered-width: 0%;
+	position: relative;
+	width: calc(100% - 8px - 8px);
+	border: solid 1px rgba(255, 255, 255, 0.15);
+	border-radius: 12px;
 }
 
 .audio-player-container-mobile {
-    display: block;
-    margin-top: 16px;
-    margin-bottom: 4px;
-    margin-left: 8px;
-    margin-right: 8px;
-    --seek-before-width: 0%;
-    --volume-before-width: 100%;
-    --buffered-width: 0%;
-    position: relative;
-    width: calc(100% - 8px - 8px);
-    height: fit-content;
-    border: solid 1px rgba(255, 255, 255, 0.15);
-    border-radius: 12px;
+	display: block;
+	margin-top: 16px;
+	margin-bottom: 4px;
+	margin-left: 8px;
+	margin-right: 8px;
+	--seek-before-width: 0%;
+	--volume-before-width: 100%;
+	--buffered-width: 0%;
+	position: relative;
+	width: calc(100% - 8px - 8px);
+	height: fit-content;
+	border: solid 1px rgba(255, 255, 255, 0.15);
+	border-radius: 12px;
 }
 
 .audio-player-container-top {
-    display: flex;
-    align-items: center;
+	display: flex;
+	align-items: center;
 }
 
 .audio-player-container-bottom {
-    display: flex;
-    align-items: center;
-    width: fit-content;
-    margin-left: auto;
-    margin-right: auto;
+	display: flex;
+	align-items: center;
+	width: fit-content;
+	margin-left: auto;
+	margin-right: auto;
 }
 
 .seek-slider {
-    width: -webkit-fill-available !important;
+	width: -webkit-fill-available !important;
 }
 
 .volume-slider {
-    width: 100%;
+	width: 100%;
 }
 
 .audio-player-container::before {
-    position: absolute;
-    content: '';
-    width: calc(100% + 4px);
-    height: calc(100% + 4px);
-    left: -2px;
-    top: -2px;
-    background: transparent;
-    z-index: -1;
+	position: absolute;
+	content: '';
+	width: calc(100% + 4px);
+	height: calc(100% + 4px);
+	left: -2px;
+	top: -2px;
+	background: transparent;
+	z-index: -1;
 }
 
 .time {
-    width: fit-content;
-    min-width: fit-content;
-    max-width: fit-content;
-    margin-bottom: 1px;
-    margin-left: 8px;
+	width: fit-content;
+	min-width: fit-content;
+	max-width: fit-content;
+	margin-bottom: 1px;
+	margin-left: 8px;
 }
 
 .audio-controls-output {
-    display: inline-block;
-    width: 32px;
-    text-align: center;
-    font-size: 20px;
-    clear: left;
-    margin-top: 0px;
-    margin-bottom: 0px;
-    margin-left: 8px;
-    margin-right: 0px;
+	display: inline-block;
+	width: 32px;
+	text-align: center;
+	font-size: 20px;
+	clear: left;
+	margin-top: 0px;
+	margin-bottom: 0px;
+	margin-left: 8px;
+	margin-right: 0px;
 }
 
 input[type="range"] {
-    width: unset;
-    background: transparent;
-    position: relative;
-    -webkit-appearance: none;
-    margin-top: 0px;
-    margin-bottom: 0px;
-    margin-left: 8px;
-    margin-right: 8px;
-    padding: 0;
-    float: left;
-    outline: none;
+	width: unset;
+	background: transparent;
+	position: relative;
+	-webkit-appearance: none;
+	margin-top: 0px;
+	margin-bottom: 0px;
+	margin-left: 8px;
+	margin-right: 8px;
+	padding: 0;
+	float: left;
+	outline: none;
 }
 
 input[type="range"]::-webkit-slider-runnable-track {
-    height: 3px;
-    cursor: pointer;
-    background: rgba(255, 255, 255, 0.5);
+	height: 3px;
+	cursor: pointer;
+	background: rgba(255, 255, 255, 0.5);
 }
 
 input[type="range"]::before {
-    position: absolute;
-    content: "";
-    top: 8px;
-    left: 0;
-    width: var(--seek-before-width);
-    height: 3px;
-    background-color: #007db5;
-    cursor: pointer;
+	position: absolute;
+	content: "";
+	top: 8px;
+	left: 0;
+	width: var(--seek-before-width);
+	height: 3px;
+	background-color: #007db5;
+	cursor: pointer;
 }
 
 input[type="range"]::-webkit-slider-thumb {
-    position: relative;
-    -webkit-appearance: none;
-    box-sizing: content-box;
-    height: 15px;
-    width: 15px;
-    border-radius: 50%;
-    outline: none;
-    border: none;
-    background-color: #fff;
-    cursor: pointer;
-    margin: -1px 0 0 0;
+	position: relative;
+	-webkit-appearance: none;
+	box-sizing: content-box;
+	height: 15px;
+	width: 15px;
+	border-radius: 50%;
+	outline: none;
+	border: none;
+	background-color: #fff;
+	cursor: pointer;
+	margin: -1px 0 0 0;
 }
 
 input[type="range"]::-moz-range-track {
-    width: 100%;
-    height: 3px;
-    cursor: pointer;
-    background: #fff;
+	width: 100%;
+	height: 3px;
+	cursor: pointer;
+	background: #fff;
 }
 
 input[type="range"]::-moz-focus-outer {
-    border: 0;
+	border: 0;
 }
 
 input[type="range"]::-moz-range-thumb {
-    box-sizing: content-box;
-    height: 15px;
-    width: 15px;
-    border-radius: 50%;
-    outline: none;
-    border: none;
-    background-color: #fff;
-    cursor: pointer;
+	box-sizing: content-box;
+	height: 15px;
+	width: 15px;
+	border-radius: 50%;
+	outline: none;
+	border: none;
+	background-color: #fff;
+	cursor: pointer;
 }
 
 input[type="range"]::-ms-track {
-    width: 100%;
-    height: 3px;
-    cursor: pointer;
-    background: transparent;
-    border: solid transparent;
-    color: transparent;
+	width: 100%;
+	height: 3px;
+	cursor: pointer;
+	background: transparent;
+	border: solid transparent;
+	color: transparent;
 }
 
 input[type="range"]::-ms-thumb {
-    box-sizing: content-box;
-    height: 15px;
-    width: 15px;
-    border-radius: 50%;
-    outline: none;
-    border: none;
-    background-color: #fff;
-    cursor: pointer;
+	box-sizing: content-box;
+	height: 15px;
+	width: 15px;
+	border-radius: 50%;
+	outline: none;
+	border: none;
+	background-color: #fff;
+	cursor: pointer;
 }
 
 input[type="range"]::before {
-    background-color: transparent;
+	background-color: transparent;
+}
+
+select.select-model-accuracy {
+	margin-left: auto;
+	display: flex;
+	margin-bottom: 12px;
 }
