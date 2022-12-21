@@ -124,6 +124,17 @@ function timeStringToSeconds(s: string): number {
 }
 
 
+class ApiKeyInfo {
+	constructor(
+		public api_key: string,
+		public paying: boolean,
+		public tier: string,
+		public queued: string[],
+		public transcripts: string[],
+	) { }
+}
+
+
 class AudioBlock {
 	constructor(
 		public audioFilename: string,
@@ -412,7 +423,7 @@ export class AudioNotesSettingsTab extends PluginSettingTab {
 
 				}
 			}
-		})
+		});
 	}
 }
 
@@ -437,14 +448,20 @@ const DEFAULT_SETTINGS: Partial<AudioNotesSettings> = {
 export class EnqueueAudioModal extends Modal {
 	url: string;
 
-	constructor(app: App, private audioNotesApiKey: string) {
+	constructor(app: App, private audioNotesApiKey: string, private apiKeyInfo: ApiKeyInfo | undefined) {
 		super(app);
 	}
 
 	onOpen() {
+		if (!this.apiKeyInfo || this.apiKeyInfo.tier === "FREE") {
+			new Notice("Please set a valid Audio Notes API key in the settings.")
+			this.close();
+			return;
+		}
+
 		const { contentEl } = this;
 
-		contentEl.createEl("h1", { text: "Add an mp3 file to transcribe" });
+		contentEl.createEl("h1", { text: "Add a URL to an mp3 file to transcribe" });
 
 		new Setting(contentEl)
 			.setName("URL to .mp3 file")
@@ -454,19 +471,34 @@ export class EnqueueAudioModal extends Modal {
 					this.url = value
 				}));
 
+		const baseOrHigher = ["BASE", "SMALL", "MEDIUM", "LARGE"];
+		const smallOrHigher = ["SMALL", "MEDIUM", "LARGE"];
+		const mediumOrHigher = ["MEDIUM", "LARGE"];
+		const largeOrHigher = ["LARGE"];
 		const select = contentEl.createEl("select");
 		const tiny = select.createEl("option");
-		tiny.value = "tiny";
-		tiny.textContent = "tiny";
-		const base = select.createEl("option");
-		base.value = "base";
-		base.textContent = "base";
-		const small = select.createEl("option");
-		small.value = "small";
-		small.textContent = "small";
-		const medium = select.createEl("option");
-		medium.value = "medium";
-		medium.textContent = "medium";
+		tiny.value = "Tiny";
+		tiny.textContent = "Tiny";
+		if (baseOrHigher.includes(this.apiKeyInfo.tier)) {
+			const base = select.createEl("option");
+			base.value = "Base";
+			base.textContent = "Base";
+			if (smallOrHigher.includes(this.apiKeyInfo.tier)) {
+				const small = select.createEl("option");
+				small.value = "Small";
+				small.textContent = "Small";
+				if (mediumOrHigher.includes(this.apiKeyInfo.tier)) {
+					const medium = select.createEl("option");
+					medium.value = "Medium";
+					medium.textContent = "Medium";
+					if (largeOrHigher.includes(this.apiKeyInfo.tier)) {
+						const large = select.createEl("option");
+						large.value = "Large";
+						large.textContent = "Large";
+					}
+				}
+			}
+		}
 
 		new Setting(contentEl)
 			.addButton((btn) =>
@@ -474,8 +506,7 @@ export class EnqueueAudioModal extends Modal {
 					.setButtonText("Add to transcription queue")
 					.setCta()
 					.onClick(() => {
-						if (select.value) {
-							console.log(select.value)
+						if (select.value && this.url) {
 							// Make the request to enqueue the item
 							request({
 								url: 'https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/queue',
@@ -486,13 +517,15 @@ export class EnqueueAudioModal extends Modal {
 								contentType: 'application/json',
 								body: JSON.stringify({
 									"url": this.url,
-									"model": select.value,
+									"model": select.value.toUpperCase(),
 								})
 							}).then((r: any) => {
 								new Notice("Successfully queued .mp3 file for transcription");
 							}).finally(() => {
 								this.close();
 							});
+						} else {
+							new Notice("Please specify a .mp3 URL and an accuracy level.")
 						}
 					})
 			);
@@ -514,7 +547,6 @@ export default class AutomaticAudioNotes extends Plugin {
 	private getAudioPlayerIdentify(element: HTMLElement): string {
 		const knownPlayerFakeUuid = element.id.split("-")[element.id.split("-").length - 1];
 		if (!knownPlayerFakeUuid) {
-			console.log(element);
 			throw new Error("Could not find audio's identifier from the above element.")
 		}
 		return knownPlayerFakeUuid;
@@ -542,7 +574,6 @@ export default class AutomaticAudioNotes extends Plugin {
 			const player = (allPlayers[0].find("audio")! as HTMLMediaElement);
 			return player;
 		}
-		console.log(this.knownAudioPlayers);
 		throw new Error(`Could not find currently playing audio with ID: ${this.currentlyPlayingAudioFakeUuid}`);
 	}
 
@@ -783,7 +814,7 @@ export default class AutomaticAudioNotes extends Plugin {
 			id: 'add-audio-file-to-processing-queue',
 			name: 'Add audio file to transcription queue',
 			callback: async () => {
-				new EnqueueAudioModal(this.app, this.getSettingsAudioNotesApiKey()).open();
+				new EnqueueAudioModal(this.app, this.getSettingsAudioNotesApiKey(), await this.getInfoByApiKey()).open();
 			}
 		});
 
@@ -1530,6 +1561,23 @@ export default class AutomaticAudioNotes extends Plugin {
 		const fileContents = await this.app.vault.read(file);
 		const audioNotes: AudioNote[] = this.getAudioNoteBlocks(fileContents, 1);
 		return audioNotes[0];
+	}
+
+	async getInfoByApiKey(): Promise<ApiKeyInfo | undefined> {
+		const apiKey = this.getSettingsAudioNotesApiKey();
+		if (apiKey) {
+			const infoString: string = await request({
+				url: 'https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/users/byapikey',
+				method: 'GET',
+				headers: {
+					'x-api-key': this.getSettingsAudioNotesApiKey(),
+				},
+				contentType: 'application/json',
+			});
+			return JSON.parse(infoString) as ApiKeyInfo;
+		} else {
+			return undefined;
+		}
 	}
 
 	async getTranscript(transcriptFilename: string | undefined, checkFiles: boolean = true): Promise<string | undefined> {
