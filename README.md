@@ -16,12 +16,12 @@ Check it out!
 
 <strong>Audio Notes</strong> creates a quote callout that contains the quote from the audio and an embedded audio player.
 
-If you use the speech recognition software described below, you can generate transcripts for your audio files. Once you have a transcript, <strong>Audio Notes</strong> will automatically generate quotes for your notes!
+Using the speech recognition software described below, you can generate transcripts for your audio files. Once you have a transcript, <strong>Audio Notes</strong> will automatically generate quotes for your notes!
 
 Audio notes look like this:
 ![](assets/renderedNote.png)
 
-To create one, you must specify an audio file and may set a few other attributes. All attributes are set using a callout-like code block:
+To create one, you must specify an audio file and can set a few other attributes. All attributes are set using a callout-like code block:
 ![](assets/unrenderedNote.png)
 
 * `audio`: (required) The audio filename. It can be a local file or a link to an audio file online.
@@ -33,9 +33,9 @@ To create one, you must specify an audio file and may set a few other attributes
 
 ## How to Use the Plugin
 
-Find the .mp3 file you want to take notes on and move it into your vault. You may want to generate a transcript using the Python code at the end of this README to allow <strong>Audio Notes</strong> to automatically insert the transcript of the audio.
+Find the .mp3 file you want to take notes on and move it into your vault. You may want to generate a transcript file to allow <strong>Audio Notes</strong> to automatically insert the transcript of the audio (see below).
 
-Once your .mp3 file is in your vault, create a new note and create an Audio Note by writing an callout-like code block. Here is an example:
+Once your .mp3 file is in your vault, create a new note and create an Audio Note by writing a code block like this:
 
     ```audio-note
     audio: assets/276-paul-grahams-essays-part-2-ads.mp3
@@ -49,7 +49,7 @@ When you want to take a note on what was said, pause the audio and run the comma
 
 Edit the newly created audio note to your heart's content! You can change the text and the start/end times of the audio segment. If you extend the audio and need to regenerate the quote to include more words, you can delete the quote then use the command `Regenerate Current Audio Note` or `Regenerate All Audio Notes` to re-create the quote from the start/end times you set.
 
-Listen to your note any time, anywhere :)
+Now you can listen to your note any time, anywhere :)
 
 #### Bind Hotkeys to Contro Audio Player
 
@@ -67,13 +67,41 @@ If you're on your computer, you can use hotkeys to control the currently-playing
 
 #### Summarize Text
 
-As an addon, a command to summary text is included in the plugin. You can select a body of text and run the command `Summarize selection using OpenAI` to summarize the text you have selected. Your OpenAI API key must be set in the settings.
+As an addon, a command to summarize text is included in the plugin. You can select a body of text and run the command `Summarize selection using OpenAI` to summarize the text you have selected. Your OpenAI API key must be set in the settings.
+
+## Using on Mobile
+
+(Only tested on Android)
+
+If you listen to podcasts or other .mp3 on your phone, taking audio notes on your phone is critical.
+
+The workflow below follows the CODE process by [Tiago Forte](https://fortelabs.com/): Capture, Organize, Distill, and Express. You can quickly capture the information you care about and can come back to it later to organize, distill, and express it without losing your train of though on the podcast/audio you're listening to. This helps to avoid the [Doorway effect](https://en.wikipedia.org/wiki/Doorway_effect#:~:text=The%20doorway%20effect%20is%20a,remained%20in%20the%20same%20place.).
+
+This is the best way I've found to take notes:
+
+1. Install Audio Notes on your phone, and pin the `Create new Audio Note ...` command to the top of your commands (using the core plugin `Command palette`).
+2. On your computer preload the .mp3 and transcript, and create a new note in your vault with the initial `audio-note`.
+3. Sync your vault to your phone.
+4. Open Obsidian on your phone and go for a walk! Listen to the .mp3 from within Obsidian using the `audio-note` you just created and synced to your phone.
+5. Pause the audio when you hear something you want to remember, swipe down, and create a new audio note at the end of the note. You can add any personal thoughts at this time below the newly-generated note.
+6. When you're done, sync your note back to your computer and edit the quotes.
+7. Finish the note by highlighting or summarizing the things you most want to remember.
+
+Here's a vidoe of using <strong>Audio Notes</strong> on your phone.
+
+<img src="assets/audio-notes-example-mobile_exported_0.jpg" href="https://audio-notes-public.s3.amazonaws.com/audio-notes-example-mobile.mp4" style="width:200px"/>
 
 ## Generating a Transcript
 
-If you have an audio file on your computer, you can use [OpenAI Whisper](https://github.com/openai/whisper) to generate a transcript. At the time of writing this plugin, OpenAI Whisper is the state-of-the-art speech recognition library.
+There are two ways to generate a transcript: by yourself, or automatically.
 
-You can easily run OpenAI Whisper using Python 3.9. First install Python 3.9 (I recommend using [miniconda](https://docs.conda.io/en/latest/miniconda.html)), then install OpenAI Whipser with `pip install git+https://github.com/openai/whisper.git`.
+### Generating a Transcript Yourself
+
+This process can be difficult because installing OpenAI Whisper is difficult, but here's how it works:
+
+You can use [OpenAI Whisper](https://github.com/openai/whisper) to generate a transcript from an audio file on your computer. At the time of writing this plugin, OpenAI Whisper is the state-of-the-art speech recognition library.
+
+Running OpenAI Whisper requires Python 3.9. I recommending installing Python 3.9 using [miniconda](https://docs.conda.io/en/latest/miniconda.html). Once python is installed, install OpenAI Whipser with `pip install git+https://github.com/openai/whisper.git`. You may also need to install `ffmpeg`, which is more difficult. See OpenAI Whisper's documentation for more info.
 
 The following python script will perform speech recognition on your audio file and save the transcript to your vault. Once the transript is in your vault, the Audio Notes plugin can use it to generate text automatically.
 
@@ -134,22 +162,49 @@ with open(output_filename, "w") as f:
 print("Done!")
 ```
 
-## Using on Mobile
+### Generating a Transcript Automatically
 
-(Only tested on Android)
+This is new functionality! I'm running a Beta program that will generate transcripts for you.
 
-I typically listen to a podcast or other .mp3 on my phone, so taking audio notes on my phone is critical. This is the best way I've found to take notes:
+With this workflow, you input an .mp3 file using a URL, and the .mp3 file is processed in the cloud to generate the transcript. The transcript file is then stored online and will automatically be used by <strong>Audio Notes</strong> to generate quotes.
 
-1. Install Audio Notes on my phone, and pin the "Create new Audio Note ..." command to the top of my commands (this is a core plugin).
-2. From my computer, I preload the .mp3, transcript, and starting note in my vault.
-3. I sync my vault to my phone.
-4. Open Obsidian on my phone and go for a walk, listening to the .mp3 from within obsidian.
-5. Pause the audio when I hear something I want to remember, swipe down, and create a new audio note at the end of the note. I can add any personal thoughts at this time below the newly-generated note.
-6. When I'm done, I sync my note back to my computer and edit the quotes.
-7. Finish the note by highlighting or summarizing the things I most want to remember.
+Due to the costs of processing the transcript, I have no choice but to charge for it. I would love to provide it for free, but the costs are non-trivial. As an example, [replicate.com](https://www.replicate.com) charges over $8.00 _per hour!_ for transcribing audio to text. I am doing my best to keep costs low, which is why I am running a Beta program.
 
-The above workflow follows the CODE process by [Tiago Forte](https://fortelabs.com/): Capture, Organize, Distill, and Express. You can quickly capture the information you care about and can come back to it later to organize, distill, and express it without losing your train of though on the podcast/audio you're listening to. This helps to avoid the [Doorway effect](https://en.wikipedia.org/wiki/Doorway_effect#:~:text=The%20doorway%20effect%20is%20a,remained%20in%20the%20same%20place.).
+#### How it Works
 
-Below is a vidoe of using <strong>Audio Notes</strong> on your phone.
+If the .mp3 file is available online, you can transcribe it by using the command `Transcribe .mp3 file online`. A dialog window will appear where you can enter the URL of the .mp3 file.
 
-<img src="assets/audio-notes-example-mobile_exported_0.jpg" href="https://audio-notes-public.s3.amazonaws.com/audio-notes-example-mobile.mp4" style="width:200px"/>
+![](assets/online-transcription-prompt.png)
+
+You can specify different accuracy levels for the transcription. `Tiny` is the fastest and least accurate transcription level. Each level above `Tiny` increases in both accuracy and cost.
+
+After you submit a URL to be processed, it goes into a queue. Once the URL is processed and the transcript is available, you can generate audio notes using the the .mp3 file's URL. Below is an example, using a freely-available .mp3 recording of Martin Luther King's famous "I Have a Dream" speech.
+
+	```audio-note
+	audio: https://ia800207.us.archive.org/29/items/MLKDream/MLKDream.mp3#t=10
+	transcript: https://ia800207.us.archive.org/29/items/MLKDream/MLKDream.mp3
+	title: I Have a Dream
+	author: Martin Luther King
+	```
+
+Note that the `transcript:` must be set to the same mp3 URL as the `audio:`.
+
+#### Pricing
+
+I would love to be able to provide this transcription service for free. Unfortunately, the costs get expensive quickly. For example, [replicate.com](https://www.replicate.com) charges over $8.00 _per hour!_ for transcribing audio to text. I am doing my best to keep costs low, which is why I am running a Beta program. Costs scale with accuracy, so the price tiers increase based on the accuracy level you want.
+
+* Tiny: $5/month. This is the least accurate tier, but by far the fastest.
+* Base: $15/month. Noticeably better accuracy than Tiny.
+* Small: $30/month. Should transcribe most words accuractely.
+* Medium: Currently unavailable due to costs. Contact me if interested.
+* Large: Currently unavailable due to costs. Contact me if interested.
+
+#### Email Me to Join
+
+If you would like to join the Beta program, please email me. You can find my email address on my bio page at [github.com/jjmaldonis](https://www.github.com/jjmaldonis). In your email, include which tier you would like to join at.
+
+After I have replied to your email, you can subscribe on [Ko-Fi](https://ko-fi.com/jjmaldonis).
+
+I will then email you an API key to use, and you'll be able to start generating transcripts!
+
+If you are overloading the service, I may email you to ask you to slow down your requests. This is a Beta program :)
