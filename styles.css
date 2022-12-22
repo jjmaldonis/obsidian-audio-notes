@@ -277,3 +277,29 @@ select.select-model-accuracy {
 	display: flex;
 	margin-bottom: 12px;
 }
+
+/* Create new audio note prompt */
+.create-new-audio-note-file-title {
+	margin-left: 12px;
+	margin-right: 12px;
+	text-align: center;
+}
+
+.create-new-audio-note-file-input-element {}
+
+.create-new-audio-note-file-url-container {
+	display: flex;
+}
+
+.create-new-audio-note-file-submit-button {
+	width: fit-content;
+	align-self: center;
+	margin-top: 12px;
+	margin-bottom: 12px;
+	margin-left: 12px;
+	margin-right: 12px;
+}
+
+.create-new-audio-note-file-prompt-input-container {
+	width: 100%;
+}

@@ -1,4 +1,4 @@
-![version](https://img.shields.io/badge/version-0.2.0-blue)
+![version](https://img.shields.io/badge/version-0.2.1-blue)
 ![license](https://img.shields.io/badge/license-MIT-brightgreen)
 <a href='https://ko-fi.com/jjmaldonis' target='_blank'><img height='20' style='border:0px;height:26px;margin-bottom:-2.5px;' src='https://az743702.vo.msecnd.net/cdn/kofi3.png?v=0' border='0' alt='Buy Me a Coffee :)' /></a>
 
@@ -35,7 +35,7 @@ To create one, you must specify an audio file and can set a few other attributes
 
 Find the .mp3 file you want to take notes on and move it into your vault. You may want to generate a transcript file to allow <strong>Audio Notes</strong> to automatically insert the transcript of the audio (see below).
 
-Once your .mp3 file is in your vault, create a new note and create an Audio Note by writing a code block like this:
+Once your .mp3 file is in your vault, run the command `Create new Audio Note in new file`. After you select your mp3 file, create a new note is created with an Audio Note that looks like this:
 
     ```audio-note
     audio: assets/276-paul-grahams-essays-part-2-ads.mp3
@@ -172,7 +172,7 @@ Due to the costs of processing the transcript, I have no choice but to charge fo
 
 #### How it Works
 
-If the .mp3 file is available online, you can transcribe it by using the command `Transcribe .mp3 file online`. A dialog window will appear where you can enter the URL of the .mp3 file.
+If the .mp3 file is available online, you can transcribe it by using the command `Transcribe mp3 file online`. A dialog window will appear where you can enter the URL of the .mp3 file.
 
 ![](assets/online-transcription-prompt.png)
 

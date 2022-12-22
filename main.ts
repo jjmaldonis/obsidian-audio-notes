@@ -12,6 +12,7 @@ import {
 	Setting,
 	Editor,
 	Modal,
+	FuzzySuggestModal,
 	request,
 } from 'obsidian';
 
@@ -541,6 +542,84 @@ export class EnqueueAudioModal extends Modal {
 }
 
 
+export class CreateNewAudioNoteInNewFileModal extends FuzzySuggestModal<TFile> {
+	constructor(app: App, private mp3Files: TFile[]) {
+		super(app);
+		// this.setInstructions([{ "command": "Select mp3 file from vault or enter a URL to an mp3 file online", "purpose": "" }]);
+		this.setPlaceholder("or select an mp3 file from your vault")
+	}
+
+	getItems(): TFile[] {
+		return this.mp3Files;
+	}
+
+	getItemText(file: TFile): string {
+		return file.path;
+	}
+
+	onOpen(): void {
+		super.onOpen();
+		const header = createEl("h1", { text: "Create new Audio Note file from mp3", cls: "create-new-audio-note-file-title" })
+		const prompt = Array.from(this.containerEl.childNodes)[1];
+
+		const pasteUrlContainer = createDiv({ cls: "create-new-audio-note-file-url-container" });
+		const urlInputContainer = pasteUrlContainer.createDiv({ cls: "prompt-input-container create-new-audio-note-file-prompt-input-container" });
+		const urlInput = urlInputContainer.createEl("input", { placeholder: `Paste a URL to an online mp3 file...`, cls: "prompt-input create-new-audio-note-file-input-element" })
+		const submitUrlButton = pasteUrlContainer.createEl("button", { cls: "mod-cta create-new-audio-note-file-submit-button", text: "Submit URL" });
+		submitUrlButton.addEventListener('click', () => {
+			console.log("submitted url")
+			const url = urlInput.value;
+			const urlParts = url.split("/");
+			const lastPart = urlParts[urlParts.length - 1];
+			const title = lastPart.split("?")[0].replace(/.mp3/g, "");
+			const newNoteFilename = title + ".md";
+			this.createNewAudioNoteFile(url, newNoteFilename, title);
+			this.close();
+		});
+
+		const nodes: Node[] = [header, pasteUrlContainer];
+		for (const node of Array.from(prompt.childNodes)) {
+			nodes.push(node);
+		}
+
+		prompt.setChildrenInPlace(nodes);
+	}
+
+	onChooseItem(file: TFile, evt: MouseEvent | KeyboardEvent) {
+		const newNoteFilename = file.path.split(".").slice(0, file.path.split(".").length - 1).join(".") + ".md"
+		let title = file.name;
+		title = file.name.slice(0, file.name.length - (file.extension.length + 1));
+		title = title.replace(/-/g, " ");
+		title = title.replace(/_/g, " ");
+		title = title.split(" ").map((part: string) => part.charAt(0).toUpperCase() + part.slice(1, undefined)).join(" ");
+		this.createNewAudioNoteFile(file.path, newNoteFilename, title);
+	}
+
+	createNewAudioNoteFile(audioFilename: string, newNoteFilename: string, title: string) {
+		const newNoteContents = `\`\`\`audio-note
+audio: ${audioFilename}
+transcript: ${audioFilename}
+title: ${title}
+\`\`\`
+`;
+		const numberOfLines = 5;
+		this.app.vault.create(newNoteFilename, newNoteContents).then((newNote: TFile) => {
+			// Create the file and open it in the active leaf
+			const leaf = this.app.workspace.getLeaf(false);
+			leaf.openFile(newNote).then(() => {
+				const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+				if (view) {
+					view.editor.setCursor(numberOfLines);
+				}
+			});
+		}).catch((error: any) => {
+			new Notice(`Could not create new audio note file: ${newNoteFilename}`);
+			new Notice(`${error}`);
+		});
+	}
+}
+
+
 export default class AutomaticAudioNotes extends Plugin {
 	settings: AudioNotesSettings;
 	knownCurrentTimes: Map<string, number> = new Map();
@@ -722,6 +801,16 @@ export default class AutomaticAudioNotes extends Plugin {
 		});
 
 		this.addCommand({
+			id: 'create-new-audio-note-with-new-file',
+			name: 'Create new Audio Note in new file',
+			callback: async () => {
+				const allFiles = this.app.vault.getFiles();
+				const mp3Files = allFiles.filter((file: TFile) => file.extension === "mp3");
+				new CreateNewAudioNoteInNewFileModal(this.app, mp3Files).open();
+			}
+		});
+
+		this.addCommand({
 			id: 'summarize-using-openai',
 			name: 'Summarize Selection using OpenAI',
 			editorCallback: async (editor: Editor, view: MarkdownView) => {
@@ -815,7 +904,7 @@ export default class AutomaticAudioNotes extends Plugin {
 
 		this.addCommand({
 			id: 'add-audio-file-to-queue',
-			name: 'Transcribe .mp3 file online',
+			name: 'Transcribe mp3 file online',
 			callback: async () => {
 				new EnqueueAudioModal(this.app, this.getSettingsAudioNotesApiKey(), this.getInfoByApiKey()).open();
 			}
@@ -827,8 +916,32 @@ export default class AutomaticAudioNotes extends Plugin {
 			(src, el, ctx) => this.postprocessor(src, el, ctx)
 		);
 
+		this.monkeyPatchConsole(this);
+
 		console.log("Audio Notes: Obsidian Audio Notes loaded")
 	}
+
+	monkeyPatchConsole = (plugin: Plugin) => {
+		if (!Platform.isMobile) {
+			return;
+		}
+
+		const logFile = `${plugin.manifest.dir}/logs.txt`;
+		const logs: string[] = [];
+		const logMessages = (prefix: string) => (...messages: unknown[]) => {
+			logs.push(`\n[${prefix}]`);
+			for (const message of messages) {
+				logs.push(String(message));
+			}
+			plugin.app.vault.adapter.write(logFile, logs.join(" "));
+		};
+
+		console.debug = logMessages("debug");
+		console.error = logMessages("error");
+		console.info = logMessages("info");
+		console.log = logMessages("log");
+		console.warn = logMessages("warn");
+	};
 
 	replaceElementWithError(el: HTMLElement, error: Error): void {
 		const pre = createEl("pre");
