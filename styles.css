@@ -181,7 +181,7 @@ If your plugin does not need CSS, delete this file.
 	margin-right: 0px;
 }
 
-input[type="range"] {
+.audio-player-container input[type="range"] {
 	width: unset;
 	background: transparent;
 	position: relative;
@@ -195,13 +195,13 @@ input[type="range"] {
 	outline: none;
 }
 
-input[type="range"]::-webkit-slider-runnable-track {
+.audio-player-container input[type="range"]::-webkit-slider-runnable-track {
 	height: 3px;
 	cursor: pointer;
 	background: rgba(255, 255, 255, 0.5);
 }
 
-input[type="range"]::before {
+.audio-player-container input[type="range"]::before {
 	position: absolute;
 	content: "";
 	top: 8px;
@@ -212,7 +212,7 @@ input[type="range"]::before {
 	cursor: pointer;
 }
 
-input[type="range"]::-webkit-slider-thumb {
+.audio-player-container input[type="range"]::-webkit-slider-thumb {
 	position: relative;
 	-webkit-appearance: none;
 	box-sizing: content-box;
@@ -223,21 +223,28 @@ input[type="range"]::-webkit-slider-thumb {
 	border: none;
 	background-color: #fff;
 	cursor: pointer;
+}
+
+.audio-player-container input[type="range"]::-webkit-slider-thumb {
+	margin: -1px 0 0 0;
+}
+
+.audio-player-container-mobile input[type="range"]::-webkit-slider-thumb {
 	margin: 2.5px 0 0 0;
 }
 
-input[type="range"]::-moz-range-track {
+.audio-player-container input[type="range"]::-moz-range-track {
 	width: 100%;
 	height: 3px;
 	cursor: pointer;
 	background: #fff;
 }
 
-input[type="range"]::-moz-focus-outer {
+.audio-player-container input[type="range"]::-moz-focus-outer {
 	border: 0;
 }
 
-input[type="range"]::-moz-range-thumb {
+.audio-player-container input[type="range"]::-moz-range-thumb {
 	box-sizing: content-box;
 	height: 15px;
 	width: 15px;
@@ -248,7 +255,7 @@ input[type="range"]::-moz-range-thumb {
 	cursor: pointer;
 }
 
-input[type="range"]::-ms-track {
+.audio-player-container input[type="range"]::-ms-track {
 	width: 100%;
 	height: 3px;
 	cursor: pointer;
@@ -257,7 +264,7 @@ input[type="range"]::-ms-track {
 	color: transparent;
 }
 
-input[type="range"]::-ms-thumb {
+.audio-player-container input[type="range"]::-ms-thumb {
 	box-sizing: content-box;
 	height: 15px;
 	width: 15px;
@@ -269,7 +276,7 @@ input[type="range"]::-ms-thumb {
 	margin: 2.5px 0 0 0;
 }
 
-input[type="range"]::before {
+.audio-player-container input[type="range"]::before {
 	background-color: transparent;
 }
 

@@ -14,6 +14,7 @@ import {
 	Modal,
 	FuzzySuggestModal,
 	request,
+	ToggleComponent,
 } from 'obsidian';
 
 // Load Font-Awesome stuff
@@ -383,6 +384,16 @@ export class AudioNotesSettingsTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					}));
 
+		new Setting(containerEl)
+			.setName('Debugging mode')
+			.setDesc('Turn on to log console messages to log.txt in the plugin folder (requires restart).')
+			.addToggle((toggle: ToggleComponent) => {
+				toggle.onChange(async (value: boolean) => {
+					this.plugin.settings.debugMode = value;
+					await this.plugin.saveSettings();
+				});
+			});
+
 		containerEl.createEl("hr");
 		containerEl.createDiv("p").textContent = `MP3 files added for transcription:`;
 		request({
@@ -434,6 +445,7 @@ interface AudioNotesSettings {
 	forwardStep: string;
 	openAiApiKey: string;
 	audioNotesApiKey: string;
+	debugMode: boolean;
 }
 
 const DEFAULT_SETTINGS: Partial<AudioNotesSettings> = {
@@ -442,6 +454,7 @@ const DEFAULT_SETTINGS: Partial<AudioNotesSettings> = {
 	forwardStep: "15",
 	openAiApiKey: "",
 	audioNotesApiKey: "",
+	debugMode: false,
 };
 
 
@@ -546,7 +559,7 @@ export class CreateNewAudioNoteInNewFileModal extends FuzzySuggestModal<TFile> {
 	constructor(app: App, private mp3Files: TFile[]) {
 		super(app);
 		// this.setInstructions([{ "command": "Select mp3 file from vault or enter a URL to an mp3 file online", "purpose": "" }]);
-		this.setPlaceholder("or select an mp3 file from your vault")
+		this.setPlaceholder("or select an mp3 file from your vault using the dropdown below:")
 	}
 
 	getItems(): TFile[] {
@@ -565,7 +578,7 @@ export class CreateNewAudioNoteInNewFileModal extends FuzzySuggestModal<TFile> {
 		const pasteUrlContainer = createDiv({ cls: "create-new-audio-note-file-url-container" });
 		const urlInputContainer = pasteUrlContainer.createDiv({ cls: "prompt-input-container create-new-audio-note-file-prompt-input-container" });
 		const urlInput = urlInputContainer.createEl("input", { placeholder: `Paste a URL to an online mp3 file...`, cls: "prompt-input create-new-audio-note-file-input-element" })
-		const submitUrlButton = pasteUrlContainer.createEl("button", { cls: "mod-cta create-new-audio-note-file-submit-button", text: "Submit URL" });
+		const submitUrlButton = pasteUrlContainer.createEl("button", { cls: "mod-cta create-new-audio-note-file-submit-button", text: "Create new note from URL" });
 		submitUrlButton.addEventListener('click', () => {
 			const url = urlInput.value;
 			const urlParts = url.split("/");
@@ -694,6 +707,10 @@ export default class AutomaticAudioNotes extends Plugin {
 		return this.settings.audioNotesApiKey;
 	}
 
+	getSettingsDebugMode(): boolean {
+		return this.settings.debugMode;
+	}
+
 	updateCurrentTimeOfAudio(audio: HTMLMediaElement): void {
 		// There is a minor bug if users delete a src and readd the same src, because the currentTime will change on the new src.
 		this.knownCurrentTimes.set(audio.src, audio.currentTime);
@@ -713,6 +730,10 @@ export default class AutomaticAudioNotes extends Plugin {
 	}
 
 	async onload() {
+		if (!this.isDesktop && this.getSettingsDebugMode()) {
+			this.monkeyPatchConsole(this);
+		}
+
 		// Settings
 		await this.loadSettings();
 		this.addSettingTab(new AudioNotesSettingsTab(this.app, this));
@@ -736,7 +757,7 @@ export default class AutomaticAudioNotes extends Plugin {
 					// If checking is true, we're simply "checking" if the command can be run.
 					// If checking is false, then we want to actually perform the operation.
 					if (!checking) {
-						// Note: `.catch` is required (rather than `await ...`) due to the type required by `editorCheckCallback`.
+						// async via .then().catch() blocks
 						this.getFirstAudioNoteInFile(markdownView.file).then((audioNote: AudioNote) => {
 							const audioSrcPath = this._getFullAudioSrcPath(audioNote);
 							if (!audioSrcPath) {
@@ -774,7 +795,7 @@ export default class AutomaticAudioNotes extends Plugin {
 					// If checking is true, we're simply "checking" if the command can be run.
 					// If checking is false, then we want to actually perform the operation.
 					if (!checking) {
-						// Note: `.catch` is required (rather than `await ...`) due to the type required by `editorCheckCallback`.
+						// async via .then().catch() blocks
 						this.regenerateCurrentAudioNote(markdownView).catch((error) => {
 							new Notice("Could not generate audio notes.", 10000);
 						});
@@ -796,7 +817,7 @@ export default class AutomaticAudioNotes extends Plugin {
 					// If checking is true, we're simply "checking" if the command can be run.
 					// If checking is false, then we want to actually perform the operation.
 					if (!checking) {
-						// Note: `.catch` is required (rather than `await ...`) due to the type required by `editorCheckCallback`.
+						// async via .then().catch() blocks
 						this.regenerateAllAudioNotes(markdownView).catch((error) => {
 							new Notice("Could not generate audio notes.", 10000);
 						});
@@ -923,10 +944,6 @@ export default class AutomaticAudioNotes extends Plugin {
 			`audio-note`,
 			(src, el, ctx) => this.postprocessor(src, el, ctx)
 		);
-
-		if (!this.isDesktop) {
-			this.monkeyPatchConsole(this);
-		}
 
 		console.log("Audio Notes: Obsidian Audio Notes loaded")
 	}
@@ -1415,8 +1432,9 @@ export default class AutomaticAudioNotes extends Plugin {
 		}
 
 		// Create the container div.
+		let audioPlayerContainerClasses = "audio-player-container";
 		if (this.isDesktop) { // desktop
-			const audioPlayerContainer = createDiv({ attr: { id: `audio-player-container-${fakeUuid}` }, cls: "audio-player-container" })
+			const audioPlayerContainer = createDiv({ attr: { id: `audio-player-container-${fakeUuid}` }, cls: audioPlayerContainerClasses })
 			audioPlayerContainer.appendChild(audio);
 			audioPlayerContainer.appendChild(playButton);
 			audioPlayerContainer.appendChild(seeker);
@@ -1427,7 +1445,8 @@ export default class AutomaticAudioNotes extends Plugin {
 			audioPlayerContainer.appendChild(muteButton);
 			return audioPlayerContainer;
 		} else { // mobile
-			const audioPlayerContainer = createDiv({ attr: { id: `audio-player-container-${fakeUuid}` }, cls: "audio-player-container-mobile" })
+			audioPlayerContainerClasses += " audio-player-container-mobile"
+			const audioPlayerContainer = createDiv({ attr: { id: `audio-player-container-${fakeUuid}` }, cls: audioPlayerContainerClasses })
 			const topDiv = createDiv({ cls: "audio-player-container-top" });
 			const bottomDiv = createDiv({ cls: "audio-player-container-bottom" });
 			topDiv.appendChild(audio);
@@ -1604,8 +1623,7 @@ export default class AutomaticAudioNotes extends Plugin {
 			new Notice(`Could not find transcript: ${audioNote.transcriptFilename}`, 10000);
 		}
 
-		const sourceView = view.contentEl.querySelector(".markdown-source-view");
-		if (!sourceView) {
+		if (view.getMode() !== "source") {
 			console.error(`Audio Notes: Must be in editor mode.`);
 			new Notice(`Must be in editor mode.`, 10000);
 			return undefined;
