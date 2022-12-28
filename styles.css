@@ -57,14 +57,14 @@ If your plugin does not need CSS, delete this file.
 .audio-note-forward-button,
 .audio-note-backward-button,
 .audio-note-reset-button {
-	padding: 0;
+	padding: 0 !important;
 	border: 0;
 	background: transparent;
 	background-color: transparent !important;
 	box-shadow: none !important;
 	cursor: pointer;
 	outline: none;
-	width: fit-content;
+	width: fit-content !important;
 	height: 40px;
 	margin: 0;
 }
@@ -135,7 +135,7 @@ If your plugin does not need CSS, delete this file.
 }
 
 .audio-player-container-bottom {
-	display: flex;
+	display: block;
 	align-items: center;
 	width: fit-content;
 	margin-left: auto;
@@ -223,7 +223,7 @@ input[type="range"]::-webkit-slider-thumb {
 	border: none;
 	background-color: #fff;
 	cursor: pointer;
-	margin: -1px 0 0 0;
+	margin: 2.5px 0 0 0;
 }
 
 input[type="range"]::-moz-range-track {
@@ -266,6 +266,7 @@ input[type="range"]::-ms-thumb {
 	border: none;
 	background-color: #fff;
 	cursor: pointer;
+	margin: 2.5px 0 0 0;
 }
 
 input[type="range"]::before {

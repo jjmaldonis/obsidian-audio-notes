@@ -49,7 +49,7 @@ function generateRandomString(length: number) {
 	let result = '';
 	const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 	const charactersLength = characters.length;
-	for (var i = 0; i < length; i++) {
+	for (let i = 0; i < length; i++) {
 		result += characters.charAt(Math.floor(Math.random() * charactersLength));
 	}
 	return result;
@@ -567,7 +567,6 @@ export class CreateNewAudioNoteInNewFileModal extends FuzzySuggestModal<TFile> {
 		const urlInput = urlInputContainer.createEl("input", { placeholder: `Paste a URL to an online mp3 file...`, cls: "prompt-input create-new-audio-note-file-input-element" })
 		const submitUrlButton = pasteUrlContainer.createEl("button", { cls: "mod-cta create-new-audio-note-file-submit-button", text: "Submit URL" });
 		submitUrlButton.addEventListener('click', () => {
-			console.log("submitted url")
 			const url = urlInput.value;
 			const urlParts = url.split("/");
 			const lastPart = urlParts[urlParts.length - 1];
@@ -717,6 +716,15 @@ export default class AutomaticAudioNotes extends Plugin {
 		// Settings
 		await this.loadSettings();
 		this.addSettingTab(new AudioNotesSettingsTab(this.app, this));
+		const data = await this.loadData();
+		if (data) {
+			const positions = data.positions;
+			if (positions) {
+				for (const [src, time] of Object.entries(positions)) {
+					this.knownCurrentTimes.set(src, time as number);
+				}
+			}
+		}
 
 		this.addCommand({
 			id: 'create-new-audio-note',
@@ -746,7 +754,7 @@ export default class AutomaticAudioNotes extends Plugin {
 							});
 						}).catch((error: Error) => {
 							console.error(`Audio Notes: ${error}`);
-							new Notice("Could not find audio note.", 10000)
+							new Notice("Could not find audio note.", 10000);
 						});
 					}
 
@@ -768,7 +776,7 @@ export default class AutomaticAudioNotes extends Plugin {
 					if (!checking) {
 						// Note: `.catch` is required (rather than `await ...`) due to the type required by `editorCheckCallback`.
 						this.regenerateCurrentAudioNote(markdownView).catch((error) => {
-							new Notice("Could not generate audio notes.", 10000)
+							new Notice("Could not generate audio notes.", 10000);
 						});
 					}
 
@@ -790,7 +798,7 @@ export default class AutomaticAudioNotes extends Plugin {
 					if (!checking) {
 						// Note: `.catch` is required (rather than `await ...`) due to the type required by `editorCheckCallback`.
 						this.regenerateAllAudioNotes(markdownView).catch((error) => {
-							new Notice("Could not generate audio notes.", 10000)
+							new Notice("Could not generate audio notes.", 10000);
 						});
 					}
 
@@ -916,7 +924,9 @@ export default class AutomaticAudioNotes extends Plugin {
 			(src, el, ctx) => this.postprocessor(src, el, ctx)
 		);
 
-		this.monkeyPatchConsole(this);
+		if (!this.isDesktop) {
+			this.monkeyPatchConsole(this);
+		}
 
 		console.log("Audio Notes: Obsidian Audio Notes loaded")
 	}
@@ -1021,8 +1031,8 @@ export default class AutomaticAudioNotes extends Plugin {
 
 	private _createAudioNoteDiv(audioNote: AudioNote, admonitionType: string, currentMdFilename: string, ctx?: MarkdownPostProcessorContext): HTMLElement {
 		// Create the main div.
-		const admonitionLikeDiv = createDiv({
-			cls: `callout admonition admonition-${admonitionType} admonition-plugin audio-note ${""
+		const calloutDiv = createDiv({
+			cls: `callout audio-note ${""
 				}`,
 			attr: {
 				"data-callout": admonitionType,
@@ -1031,35 +1041,35 @@ export default class AutomaticAudioNotes extends Plugin {
 		});
 
 		// Create the title div.
-		const titleEl = admonitionLikeDiv.createDiv({
+		const titleEl = calloutDiv.createDiv({
 			cls: `audio-note-title ${""
 				}`
 		});
 		const iconEl = titleEl.createDiv(
-			"audio-note-icon admonition-title-icon"
+			"audio-note-icon"
 		);
 		const icon = getIcon("quote-right");
 		if (icon !== undefined) {
 			iconEl.appendChild(icon);
 		}
 		const formattedTitle = audioNote.getFormattedTitle();
-		const titleInnerEl = titleEl.createDiv("audio-note-title-inner admonition-title-content");
+		const titleInnerEl = titleEl.createDiv("audio-note-title-inner");
 		this.renderMarkdown(titleEl, titleInnerEl, currentMdFilename, undefined, formattedTitle);
 		if (titleInnerEl.firstElementChild && titleInnerEl.firstElementChild instanceof HTMLParagraphElement) {
 			titleInnerEl.setChildrenInPlace(Array.from(titleInnerEl.firstElementChild.childNodes));
 		}
 
 		// Add the quote to the div.
-		const contentEl: HTMLDivElement = admonitionLikeDiv.createDiv("callout-content admonition-content");
+		const contentEl: HTMLDivElement = calloutDiv.createDiv("callout-content admonition-content");
 		let text = "";
 		if (audioNote.quote) {
 			text += audioNote.quote;
 		}
-		this.renderMarkdown(admonitionLikeDiv, contentEl, currentMdFilename, ctx, audioNote.quote || "")
+		this.renderMarkdown(calloutDiv, contentEl, currentMdFilename, ctx, audioNote.quote || "")
 
 		// Add the author to the div.
 		if (audioNote.author) {
-			const authorEl = admonitionLikeDiv.createDiv({ cls: "audio-note-author" });
+			const authorEl = calloutDiv.createDiv({ cls: "audio-note-author" });
 			let authorStr = audioNote.author;
 			if (authorStr.startsWith("-")) {
 				authorStr = `\\${authorStr}`; // prepend a \ to escape the - so it does turn into a bullet point when the HTML renders
@@ -1074,12 +1084,12 @@ export default class AutomaticAudioNotes extends Plugin {
 		// Create the audio div.
 		const audioDiv = this._createAudioDiv(audioNote);
 		if (audioDiv === undefined) {
-			return admonitionLikeDiv;
+			return calloutDiv;
 		}
-		admonitionLikeDiv.appendChild(audioDiv);
-		this.renderMarkdown(admonitionLikeDiv, audioDiv, currentMdFilename, ctx, ``);
+		calloutDiv.appendChild(audioDiv);
+		this.renderMarkdown(calloutDiv, audioDiv, currentMdFilename, ctx, ``);
 
-		return admonitionLikeDiv;
+		return calloutDiv;
 	}
 
 	private _getFullAudioSrcPath(audioNote: AudioNote): string | undefined {
@@ -1129,6 +1139,10 @@ export default class AutomaticAudioNotes extends Plugin {
 		const audio = new Audio(audioSrcPath);
 		audio.id = `audio-player-${fakeUuid}`;
 		audio.playbackRate = audioNote.speed;
+		// If the start time isn't set, set it to the last known playback time to resume playback.
+		if (!audioNote.audioFilename.includes("#t=")) {
+			audio.currentTime = this.knownCurrentTimes.get(audio.src) || 0;
+		}
 
 		const playButton = createEl("button", { attr: { id: `play-icon-${fakeUuid}` }, cls: "audio-note-play-button" });
 		const playIcon = getIcon("play");
@@ -1214,7 +1228,7 @@ export default class AutomaticAudioNotes extends Plugin {
 			let mousedownTimeoutStarted = false;
 			let currentSpeed = start;
 
-			var repeat = function () {
+			const repeat = function () {
 				action();
 				timeout = setTimeout(repeat, currentSpeed);
 				if (currentSpeed > 75) { // don't go too fast!
@@ -1297,6 +1311,7 @@ export default class AutomaticAudioNotes extends Plugin {
 			if (timeout) {
 				clearTimeout(timeout);
 			}
+			this.saveCurrentPlayerPosition(audio);
 		});
 
 		if (audio.readyState > 0) {
@@ -1323,6 +1338,7 @@ export default class AutomaticAudioNotes extends Plugin {
 			if (timeout) {
 				clearTimeout(timeout);
 			}
+			this.saveCurrentPlayerPosition(audio);
 		});
 
 		audio.addEventListener('pause', (ev: Event) => {
@@ -1333,6 +1349,7 @@ export default class AutomaticAudioNotes extends Plugin {
 			if (timeout) {
 				clearTimeout(timeout);
 			}
+			this.saveCurrentPlayerPosition(audio);
 		});
 
 		audio.addEventListener('ended', (ev: Event) => {
@@ -1340,6 +1357,7 @@ export default class AutomaticAudioNotes extends Plugin {
 			if (playIcon !== undefined && pauseIcon !== undefined) {
 				pauseIcon.parentNode?.replaceChild(playIcon, pauseIcon);
 			}
+			this.saveCurrentPlayerPosition(audio);
 		});
 
 		seeker.addEventListener('input', () => {
@@ -1583,13 +1601,13 @@ export default class AutomaticAudioNotes extends Plugin {
 		// Get the new quote.
 		if (!transcript) {
 			console.error(`Audio Notes: Could not find transcript: ${audioNote.transcriptFilename}`);
-			new Notice(`Could not find transcript: ${audioNote.transcriptFilename}`), 10000;
+			new Notice(`Could not find transcript: ${audioNote.transcriptFilename}`, 10000);
 		}
 
 		const sourceView = view.contentEl.querySelector(".markdown-source-view");
 		if (!sourceView) {
 			console.error(`Audio Notes: Must be in editor mode.`);
-			new Notice(`Must be in editor mode.`), 10000;
+			new Notice(`Must be in editor mode.`, 10000);
 			return undefined;
 		}
 
@@ -1922,5 +1940,22 @@ export default class AutomaticAudioNotes extends Plugin {
 		this.knownCurrentTimes.clear();;
 		this.knownAudioPlayers.clear();
 		this.currentlyPlayingAudioFakeUuid = null;
+	}
+
+	async saveCurrentPlayerPosition(audio: HTMLMediaElement | null | undefined): Promise<void> {
+		if (!audio) {
+			audio = this.getCurrentlyPlayerAudioElement();
+		}
+		if (audio) {
+			let data = await this.loadData();
+			if (!data) {
+				data = new Object();
+			}
+			if (!data.positions) {
+				data.positions = new Object();
+			}
+			data.positions[audio.currentSrc] = audio.currentTime;
+			await this.saveData(data);
+		}
 	}
 }
