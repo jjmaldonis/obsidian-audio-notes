@@ -164,21 +164,25 @@ print("Done!")
 
 ### Generating a Transcript Automatically
 
-This is new functionality! I'm running a Beta program that will generate transcripts for you.
+Automatically generating a transcript makes taking notes on podcasts a breeze. You submit the URL to the podcast's mp3 file, wait 5 minutes for it to process, and start taking notes! It's really that simple.
 
-With this workflow, you input an .mp3 file using a URL, and the .mp3 file is processed in the cloud to generate the transcript. The transcript file is then stored online and will automatically be used by <strong>Audio Notes</strong> to generate quotes.
+I'm running a Beta program for new users right now. It has limited access, and there are spots open now.
 
-Due to the costs of processing the transcript, I have no choice but to charge for it. I would love to provide it for free, but the costs are non-trivial. As an example, [replicate.com](https://www.replicate.com) charges over $8.00 _per hour!_ for transcribing audio to text. I am doing my best to keep costs low, which is why I am running a Beta program.
+To use this workflow, you submit a URL to an .mp3 file. The .mp3 file will be processed in the cloud to generate a transcript. After that, the transcript will be used automatically by <strong>Audio Notes</strong> to generate quotes whenever you take a note.
+
+Due to the costs of processing the transcript, I have no choice but to charge for it. I would love to provide it for free, but the costs are non-trivial. As an example, [replicate.com](https://www.replicate.com) charges over $8.00 _per hour!_ of audio for transcribing audio to text with high accuracy. If a podcast is an hour long, that would be $8.00 just to get a highly accurate transcript. I am doing my best to keep costs low, which is why I am running a Beta program.
+
+The pricing below is honestly a fantastic deal.
 
 #### How it Works
 
-If the .mp3 file is available online, you can transcribe it by using the command `Transcribe mp3 file online`. A dialog window will appear where you can enter the URL of the .mp3 file.
+For any .mp3 file that is available online, you can transcribe it by using the command `Transcribe mp3 file online`. A dialog window will appear where you can enter the URL of the .mp3 file. Below is the prompt:
 
 ![](assets/online-transcription-prompt.png)
 
 You can specify different accuracy levels for the transcription. `Tiny` is the fastest and least accurate transcription level. Each level above `Tiny` increases in both accuracy and cost.
 
-After you submit a URL to be processed, it goes into a queue. Once the URL is processed and the transcript is available, you can generate audio notes using the the .mp3 file's URL. Below is an example, using a freely-available .mp3 recording of Martin Luther King's famous "I Have a Dream" speech.
+After you submit a URL, it goes into a queue for processing. Once the .mp3 is processed and the transcript is available, you can generate audio notes by setting the `transcript:` field to the .mp3 file's URL. Below is an example using an .mp3 recording of Martin Luther King's famous speech _I Have a Dream_.
 
 	```audio-note
 	audio: https://ia800207.us.archive.org/29/items/MLKDream/MLKDream.mp3#t=10
@@ -187,24 +191,32 @@ After you submit a URL to be processed, it goes into a queue. Once the URL is pr
 	author: Martin Luther King
 	```
 
-Note that the `transcript:` must be set to the same mp3 URL as the `audio:`.
+Note that the `transcript` is set to the mp3's URL.
 
 #### Pricing
 
-I would love to be able to provide this transcription service for free. Unfortunately, the costs get expensive quickly. For example, [replicate.com](https://www.replicate.com) charges over $8.00 _per hour!_ for transcribing audio to text. I am doing my best to keep costs low, which is why I am running a Beta program. Costs scale with accuracy, so the price tiers increase based on the accuracy level you want.
+I would love to be able to provide this online transcription service for free. Unfortunately, the costs are prohibitive. For example, [replicate.com](https://www.replicate.com) charges over $8.00 _per hour!_ of audio for transcribing audio to text with high accuracy. If a podcast is an hour long, that would be $8.00 just to get a highly accurate transcript. I am doing my best to keep costs low, which is why I am running a Beta program.
 
-* Tiny: $5/month. This is the least accurate tier, but by far the fastest.
-* Base: $15/month. Noticeably better accuracy than Tiny.
-* Small: $30/month. Should transcribe most words accuractely.
+Costs scale with accuracy, so the price tiers increase based on the accuracy level you want.
+
+The Tiny tier is a particularly good deal and the transcripts are quite good.
+
+You not only get the transcript, but you also get the note-taking functionality of <strong>Audio Notes</strong>.
+
+* Tiny: $5/month. This is the fastest tier and the transcripts are excellent.
+* Base: $15/month. Better accuracy than Tiny, especially when transcribing rare words.
+* Small: $30/month. Better accuracy than Base, especially when transcribing names.
 * Medium: Currently unavailable due to costs. Contact me if interested.
 * Large: Currently unavailable due to costs. Contact me if interested.
 
 #### Email Me to Join
 
-If you would like to join the Beta program, please email me. You can find my email address on my bio page at [github.com/jjmaldonis](https://www.github.com/jjmaldonis). In your email, include which tier you would like to join at.
+If you would like to join the Beta program, please email me. You can find my email address on my bio page at [github.com/jjmaldonis](https://www.github.com/jjmaldonis). In your email, please include which tier you would like to join at. You can also contact me on Discord by searching for "Audio Notes" in the Obsidian Discord server.
 
-After I have replied to your email, you can subscribe on [Ko-Fi](https://ko-fi.com/jjmaldonis).
+After I have replied to you, you'll be able to subscribe on [Ko-Fi](https://ko-fi.com/jjmaldonis) for the tier you want.
 
-I will then email you an API key to use, and you'll be able to start generating transcripts!
+I will then send you an API key to use, and you'll be able to start generating transcripts!
 
-If you are overloading the service, I may email you to ask you to slow down your requests. This is a Beta program :)
+If you are overloading the service, I may ask you to slow down your requests so other people can use the service and get their transcripts quickly.
+
+Currently, only English is supported. If you would like to have transcriptions in a different language, please email me.
