@@ -990,12 +990,6 @@ export default class AutomaticAudioNotes extends Plugin {
 			new Notice(`Could not find transcript: ${audioNote.transcriptFilename}`, 10000);
 		}
 
-		if (view.getMode() !== "source") {
-			console.error(`Audio Notes: Must be in editor mode.`);
-			new Notice(`Must be in editor mode.`, 10000);
-			return undefined;
-		}
-
 		let start = audioNote.start;
 		let end = audioNote.end;
 		let newQuote = "";
@@ -1102,7 +1096,7 @@ export default class AutomaticAudioNotes extends Plugin {
 	async getTranscript(transcriptFilename: string | undefined, checkFiles: boolean = true): Promise<string | undefined> {
 		let transcript: string | undefined = undefined;
 		if (transcriptFilename !== undefined) {
-			if (checkFiles) {
+			if (checkFiles && transcriptFilename.endsWith(".json")) {
 				const translationFilesContents = await this.loadFiles([transcriptFilename]);
 				transcript = translationFilesContents.get(transcriptFilename);
 			}

@@ -52,10 +52,15 @@ export class CreateNewAudioNoteInNewFileModal extends FuzzySuggestModal<TFile> {
 		this.createNewAudioNoteFile(file.path, newNoteFilename, title);
 	}
 
-	createNewAudioNoteFile(audioFilename: string, newNoteFilename: string, title: string) {
+	async createNewAudioNoteFile(audioFilename: string, newNoteFilename: string, title: string) {
+		let transcriptFilename = audioFilename;
+		const testTranscriptFilename = transcriptFilename.split(".").slice(0, transcriptFilename.split(".").length - 1).join(".") + ".json";
+		if (await this.app.vault.adapter.exists(testTranscriptFilename)) {
+			transcriptFilename = testTranscriptFilename;
+		}
 		const newNoteContents = `\`\`\`audio-note
 audio: ${audioFilename}
-transcript: ${audioFilename}
+transcript: ${transcriptFilename}
 title: ${title}
 \`\`\`
 `;
@@ -64,8 +69,8 @@ title: ${title}
 			// Create the file and open it in the active leaf
 			const leaf = this.app.workspace.getLeaf(false);
 			leaf.openFile(newNote).then(() => {
-				const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (view) {
+				const view = leaf.view;
+				if (view && view instanceof MarkdownView) {
 					view.editor.setCursor(numberOfLines);
 				}
 			});
@@ -75,4 +80,3 @@ title: ${title}
 		});
 	}
 }
-

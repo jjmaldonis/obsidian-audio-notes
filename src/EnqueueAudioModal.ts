@@ -72,23 +72,29 @@ export class EnqueueAudioModal extends Modal {
 							.setCta()
 							.onClick(() => {
 								if (select.value && this.url) {
-									// Make the request to enqueue the item
-									request({
-										url: 'https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/queue',
-										method: 'POST',
-										headers: {
-											'x-api-key': this.audioNotesApiKey,
-										},
-										contentType: 'application/json',
-										body: JSON.stringify({
-											"url": this.url,
-											"model": select.value.toUpperCase(),
-										})
-									}).then((r: any) => {
-										new Notice("Successfully queued .mp3 file for transcription");
-									}).finally(() => {
-										this.close();
-									});
+									const splitUrl = this.url.split("?");
+									const endsWithMp3 = splitUrl[0].endsWith(".mp3");
+									if (endsWithMp3) {
+										// Make the request to enqueue the item
+										request({
+											url: 'https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/queue',
+											method: 'POST',
+											headers: {
+												'x-api-key': this.audioNotesApiKey,
+											},
+											contentType: 'application/json',
+											body: JSON.stringify({
+												"url": this.url,
+												"model": select.value.toUpperCase(),
+											})
+										}).then((r: any) => {
+											new Notice("Successfully queued .mp3 file for transcription");
+										}).finally(() => {
+											this.close();
+										});
+									} else {
+										new Notice("Make sure your URL is an .mp3 file. It should end in .mp3 (excluding everything after an optional question mark).", 10000)
+									}
 								} else {
 									new Notice("Please specify a .mp3 URL and an accuracy level.")
 								}
@@ -106,4 +112,3 @@ export class EnqueueAudioModal extends Modal {
 		contentEl.empty();
 	}
 }
-
