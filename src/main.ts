@@ -7,650 +7,38 @@ import {
 	Notice,
 	TFile,
 	Platform,
-	PluginSettingTab,
-	App,
-	Setting,
 	Editor,
-	Modal,
-	FuzzySuggestModal,
 	request,
-	ToggleComponent,
 } from 'obsidian';
 
+// Local imports
+import { monkeyPatchConsole } from './monkeyPatchConsole';
+import { CreateNewAudioNoteInNewFileModal } from './CreateNewAudioNoteInNewFileModal';
+import { ApiKeyInfo, EnqueueAudioModal } from './EnqueueAudioModal';
+import { generateRandomString, getIcon, secondsToTimeString, timeStringToSeconds } from './utils';
+import { AudioNotesSettings, AudioNotesSettingsTab, DEFAULT_SETTINGS } from './AudioNotesSettings';
+import { AudioElementCache, AudioNote, AudioNoteWithPositionInfo, getAudioPlayerIdentify } from './AudioNotes';
+
 // Load Font-Awesome stuff
-import type { IconName } from "@fortawesome/fontawesome-svg-core";
 import { library } from "@fortawesome/fontawesome-svg-core";
-import { findIconDefinition, icon as getFAIcon } from "@fortawesome/fontawesome-svg-core";
-import { faCopy, far, IconPrefix } from "@fortawesome/free-regular-svg-icons";
+import { faCopy, far } from "@fortawesome/free-regular-svg-icons";
 import { fas } from "@fortawesome/free-solid-svg-icons";
 import { fab } from "@fortawesome/free-brands-svg-icons";
 // Load the actual library so the icons render.
 library.add(fas, far, fab, faCopy);
 
 
-class DefaultMap<K, V> extends Map<K, V> {
-	/** Usage
-	 * new DefaultMap<string, Number>(() => 0)
-	 * new DefaultMap<string, Array>(() => [])
-	 */
-	constructor(private defaultFactory: () => V) {
-		super();
-	}
-
-	get(key: K): V {
-		if (!super.has(key)) {
-			super.set(key, this.defaultFactory());
-		}
-		return super.get(key)!;
-	}
-}
-
-
-function generateRandomString(length: number) {
-	let result = '';
-	const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-	const charactersLength = characters.length;
-	for (let i = 0; i < length; i++) {
-		result += characters.charAt(Math.floor(Math.random() * charactersLength));
-	}
-	return result;
-}
-
-
-function getIcon(iconName: string) {
-	for (const prefix of ["fas", "far", "fab", "fa"] as IconPrefix[]) {
-		const definition = findIconDefinition({
-			iconName: iconName as IconName,
-			prefix
-		});
-		if (definition) return getFAIcon(definition).node[0];
-	}
-}
-
-
-function secondsToTimeString(totalSeconds: number, truncateMilliseconds: boolean): string {
-	if (totalSeconds === 0) {
-		return "00:00";
-	}
-	let hours = Math.floor(totalSeconds / 3600);
-	let minutes = Math.floor((totalSeconds / 60 - (hours * 60)));
-	let seconds = totalSeconds - (hours * 3600 + minutes * 60);
-	let s = "";
-	if (hours > 0) {
-		if (hours >= 10) {
-			s += hours.toString() + ":";
-		} else {
-			s += "0" + hours.toString() + ":";
-		}
-	}
-	if (minutes >= 10) {
-		s += minutes.toString() + ":";
-	} else {
-		s += "0" + minutes.toString() + ":";
-	}
-	seconds = Math.round(seconds * 100) / 100; // round to 2 decimal places
-	if (seconds >= 10) {
-		s += seconds.toString();
-	} else {
-		s += "0" + seconds.toString();
-	}
-	if (Number.isNaN(hours) || Number.isNaN(minutes) || Number.isNaN(seconds) || hours === undefined || minutes === undefined || seconds === undefined) {
-		throw new Error(`Failed to convert seconds to time string: ${totalSeconds}`);
-	}
-	if (truncateMilliseconds && s.includes(".")) {
-		s = s.slice(0, s.indexOf("."));
-	}
-	return s;
-}
-
-
-function timeStringToSeconds(s: string): number {
-	let hours = 0;
-	let minutes = 0;
-	let seconds = 0;
-	const split = s.split(":");
-	if (split.length > 2) {
-		hours = parseInt(split[0]);
-		minutes = parseInt(split[1]);
-		seconds = parseFloat(split[2]);
-	} else if (split.length > 1) {
-		minutes = parseInt(split[0]);
-		seconds = parseFloat(split[1]);
-	} else {
-		seconds = parseFloat(split[0]);
-	}
-	if (Number.isNaN(hours) || Number.isNaN(minutes) || Number.isNaN(seconds) || hours === undefined || minutes === undefined || seconds === undefined) {
-		throw new Error(`Failed to convert time string to seconds: ${s}`);
-	}
-	return (hours * 3600) + (minutes * 60) + seconds;
-}
-
-
-class ApiKeyInfo {
-	constructor(
-		public api_key: string,
-		public paying: boolean,
-		public tier: string,
-		public queued: string[],
-		public transcripts: string[],
-	) { }
-}
-
-
-class AudioBlock {
-	constructor(
-		public audioFilename: string,
-		private _start: number,
-		private _end: number,
-		private _speed: number,
-	) { }
-
-	get start(): number {
-		return this._start;
-	}
-
-	set start(value: number) {
-		if (value < 0) {
-			value = 0;
-		}
-		this._start = value;
-	}
-
-	get end(): number {
-		return this._end;
-	}
-
-	set end(value: number) {
-		// There is no way to check the duration of the audio file unfortunately.
-		this._end = value;
-	}
-
-	get speed(): number {
-		return this._speed;
-	}
-
-	set speed(value: number) {
-		this._speed = value;
-	}
-}
-
-class AudioBlockWithCurrentTime extends AudioBlock {
-	constructor(
-		audioFilename: string,
-		start: number,
-		end: number,
-		speed: number,
-		public currentTime: number,
-	) {
-		super(audioFilename, start, end, speed);
-	}
-}
-
-class AudioNote extends AudioBlock {
-	constructor(
-		public title: string | undefined,
-		public author: string | undefined,
-		public audioFilename: string,
-		_start: number, // defaults to 0
-		_end: number, // defaults to Infinity
-		_speed: number,
-		public transcriptFilename: string | undefined,
-		public quoteCreatedForStart: number | undefined,
-		public quoteCreatedForEnd: number | undefined,
-		public quote: string | undefined,
-		public extendAudio: boolean,
-	) {
-		super(audioFilename, _start, _end, _speed);
-	}
-
-	get needsToBeUpdated(): boolean {
-		if (!this.quote) {
-			return true;
-		} else {
-			return false;
-		}
-		if (this.start !== this.quoteCreatedForStart || this.end !== this.quoteCreatedForEnd) {
-			return true;
-		} else {
-			return false;
-		}
-	}
-
-	getFormattedTitle(): string {
-		let viewableStartTime = undefined;
-		let viewableEndTime = undefined;
-
-		if (this.end !== Infinity) {
-			viewableStartTime = secondsToTimeString(Math.floor(this.start), false);
-			if (viewableStartTime.startsWith("0")) {
-				viewableStartTime = viewableStartTime.slice(1, undefined);
-			}
-
-			viewableEndTime = secondsToTimeString(Math.floor(this.end), false);
-			if (viewableEndTime.startsWith("0")) {
-				viewableEndTime = viewableEndTime.slice(1, undefined);
-			}
-		} else {
-			if (this.start !== 0) {
-				viewableStartTime = secondsToTimeString(Math.floor(this.start), false);
-				if (viewableStartTime.startsWith("0")) {
-					viewableStartTime = viewableStartTime.slice(1, undefined);
-				}
-				viewableEndTime = "...";
-			}
-		}
-
-		let titleStr = "";
-		if (this.title) {
-			titleStr = this.title;
-		}
-		let result;
-		if (viewableStartTime === undefined) {
-			result = `&nbsp&nbsp${titleStr}`;
-		} else {
-			result = `&nbsp&nbsp${titleStr}: ${viewableStartTime} - ${viewableEndTime}`;
-		}
-		return result;
-	}
-}
-
-class AudioNoteWithPositionInfo extends AudioNote {
-	constructor(
-		public title: string | undefined,
-		public author: string | undefined,
-		public audioFilename: string,
-		_start: number,
-		_end: number,
-		_speed: number,
-		public transcriptFilename: string | undefined,
-		public quoteCreatedForStart: number | undefined,
-		public quoteCreatedForEnd: number | undefined,
-		public quote: string | undefined,
-		public extendAudio: boolean,
-		public startLineNumber: number,
-		public endLineNumber: number,
-		public endChNumber: number,
-	) { super(title, author, audioFilename, _start, _end, _speed, transcriptFilename, quoteCreatedForStart, quoteCreatedForEnd, quote, extendAudio); }
-
-	static fromAudioNote(audioNote: AudioNote, startLineNumber: number, endLineNumber: number, endChNumber: number): AudioNoteWithPositionInfo {
-		return new AudioNoteWithPositionInfo(
-			audioNote.title,
-			audioNote.author,
-			audioNote.audioFilename,
-			audioNote.start,
-			audioNote.end,
-			audioNote.speed,
-			audioNote.transcriptFilename,
-			audioNote.quoteCreatedForStart,
-			audioNote.quoteCreatedForEnd,
-			audioNote.quote,
-			audioNote.extendAudio,
-			startLineNumber,
-			endLineNumber,
-			endChNumber,
-		)
-	}
-}
-
-
-export class AudioNotesSettingsTab extends PluginSettingTab {
-	plugin: AutomaticAudioNotes;
-
-	constructor(app: App, plugin: AutomaticAudioNotes) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
-
-	display(): void {
-		let { containerEl } = this;
-
-		containerEl.empty();
-
-		new Setting(containerEl)
-			.setName("+/- duration (seconds) when generating new nodes")
-			.setDesc("The amount of time add to and subtract from the current time when creating new audio notes")
-			.addText((text) =>
-				text
-					.setPlaceholder("30")
-					.setValue(this.plugin.settings.plusMinusDuration)
-					.onChange(async (value) => {
-						try {
-							parseFloat(value);
-							this.plugin.settings.plusMinusDuration = value;
-							await this.plugin.saveSettings();
-						} catch {
-							new Notice("Must be a number");
-						}
-					})
-			);
-
-		new Setting(containerEl)
-			.setName("Skip backward (seconds)")
-			.setDesc("The amount of time to skip backward when pressing the backward button on the audio player")
-			.addText((text) =>
-				text
-					.setPlaceholder("5")
-					.setValue(this.plugin.settings.forwardStep)
-					.onChange(async (value) => {
-						try {
-							parseFloat(value);
-							this.plugin.settings.forwardStep = value;
-							await this.plugin.saveSettings();
-						} catch {
-							new Notice("Must be a number");
-						}
-					})
-			);
-
-		new Setting(containerEl)
-			.setName("Skip forward (seconds)")
-			.setDesc("The amount of time to skip forward when pressing the forward button on the audio player")
-			.addText((text) =>
-				text
-					.setPlaceholder("15")
-					.setValue(this.plugin.settings.backwardStep)
-					.onChange(async (value) => {
-						try {
-							parseFloat(value);
-							this.plugin.settings.backwardStep = value;
-							await this.plugin.saveSettings();
-						} catch {
-							new Notice("Must be a number");
-						}
-					})
-			);
-
-		new Setting(containerEl)
-			.setName('OpenAI API Key')
-			.setDesc('Used for summarization of text. To create an API key, go to: https://beta.openai.com/account/api-keys')
-			.addText((text) =>
-				text
-					.setPlaceholder('<your OpenAI api key>')
-					.setValue(this.plugin.settings.openAiApiKey)
-					.onChange(async (value) => {
-						this.plugin.settings.openAiApiKey = value;
-						await this.plugin.saveSettings();
-					}));
-
-		new Setting(containerEl)
-			.setName('Audio Notes API Key')
-			.setDesc('Provided by the library maintainer for paying users.Used to work with transcripts online.')
-			.addText((text) =>
-				text
-					.setPlaceholder('<your api key>')
-					.setValue(this.plugin.settings.audioNotesApiKey)
-					.onChange(async (value) => {
-						this.plugin.settings.audioNotesApiKey = value;
-						await this.plugin.saveSettings();
-					}));
-
-		new Setting(containerEl)
-			.setName('Debugging mode')
-			.setDesc('Turn on to log console messages to log.txt in the plugin folder (requires restart).')
-			.addToggle((toggle: ToggleComponent) => {
-				toggle.onChange(async (value: boolean) => {
-					this.plugin.settings.debugMode = value;
-					await this.plugin.saveSettings();
-				});
-			});
-
-		containerEl.createEl("hr");
-		containerEl.createDiv("p").textContent = `MP3 files added for transcription:`;
-		request({
-			url: 'https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/users/files',
-			method: 'GET',
-			headers: {
-				'x-api-key': this.plugin.getSettingsAudioNotesApiKey(),
-			},
-			contentType: 'application/json',
-		}).then((result: string) => {
-			const urls: [string, string][] = JSON.parse(result);
-			if (urls.length > 0) {
-				const table = containerEl.createEl("table");
-				const tr = table.createEl("tr")
-				tr.createEl("th").textContent = "Status";
-				tr.createEl("th").textContent = "Length";
-				tr.createEl("th").textContent = "URL";
-				for (let i = 0; i < urls.length; i++) {
-					const [url, status] = urls[i];
-					const tr = table.createEl("tr")
-					tr.createEl("td").textContent = status;
-					const lengthTd = tr.createEl("td");
-					lengthTd.textContent = "???";
-					tr.createEl("td").textContent = url;
-
-					request({
-						url: 'https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/transcriptions',
-						method: 'GET',
-						headers: {
-							'x-api-key': this.plugin.getSettingsAudioNotesApiKey(),
-							"url": url,
-						},
-						contentType: 'application/json',
-					}).then((result: string) => {
-						const transcript = JSON.parse(result);
-						const lastSegment = transcript.segments[transcript.segments.length - 1];
-						lengthTd.textContent = secondsToTimeString(lastSegment.end, true);
-					});
-
-				}
-			}
-		});
-	}
-}
-
-interface AudioNotesSettings {
-	plusMinusDuration: string;
-	backwardStep: string;
-	forwardStep: string;
-	openAiApiKey: string;
-	audioNotesApiKey: string;
-	debugMode: boolean;
-}
-
-const DEFAULT_SETTINGS: Partial<AudioNotesSettings> = {
-	plusMinusDuration: "30",
-	backwardStep: "5",
-	forwardStep: "15",
-	openAiApiKey: "",
-	audioNotesApiKey: "",
-	debugMode: false,
-};
-
-
-
-export class EnqueueAudioModal extends Modal {
-	url: string;
-
-	constructor(app: App, private audioNotesApiKey: string, private apiKeyInfo: Promise<ApiKeyInfo | undefined>) {
-		super(app);
-	}
-
-	onOpen() {
-		const { contentEl } = this;
-
-		contentEl.createEl("h1", { text: "Add an mp3 file to transcribe" });
-
-		this.apiKeyInfo.then((apiKeyInfo) => {
-			if (apiKeyInfo) {
-				new Setting(contentEl)
-					.setName("URL to .mp3 file:")
-					.setDesc("The .mp3 must be publicly available, so it cannot require a login or other authentication to access. The .mp3 file cannot be on your computer, it must be online.")
-					.addText((text) =>
-						text.onChange((value) => {
-							this.url = value
-						}));
-
-				const baseOrHigher = ["BASE", "SMALL", "MEDIUM", "LARGE"];
-				const smallOrHigher = ["SMALL", "MEDIUM", "LARGE"];
-				const mediumOrHigher = ["MEDIUM", "LARGE"];
-				const largeOrHigher = ["LARGE"];
-				const select = contentEl.createEl("select", {
-					cls: "select-model-accuracy"
-				});
-				const tiny = select.createEl("option");
-				tiny.value = "Tiny";
-				tiny.textContent = "Tiny";
-				if (baseOrHigher.includes(apiKeyInfo.tier)) {
-					const base = select.createEl("option");
-					base.value = "Base";
-					base.textContent = "Base";
-					if (smallOrHigher.includes(apiKeyInfo.tier)) {
-						const small = select.createEl("option");
-						small.value = "Small";
-						small.textContent = "Small";
-						if (mediumOrHigher.includes(apiKeyInfo.tier)) {
-							const medium = select.createEl("option");
-							medium.value = "Medium";
-							medium.textContent = "Medium";
-							if (largeOrHigher.includes(apiKeyInfo.tier)) {
-								const large = select.createEl("option");
-								large.value = "Large";
-								large.textContent = "Large";
-							}
-						}
-					}
-				}
-
-				new Setting(contentEl)
-					.addButton((btn) =>
-						btn
-							.setButtonText("Add to Queue")
-							.setCta()
-							.onClick(() => {
-								if (select.value && this.url) {
-									// Make the request to enqueue the item
-									request({
-										url: 'https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/queue',
-										method: 'POST',
-										headers: {
-											'x-api-key': this.audioNotesApiKey,
-										},
-										contentType: 'application/json',
-										body: JSON.stringify({
-											"url": this.url,
-											"model": select.value.toUpperCase(),
-										})
-									}).then((r: any) => {
-										new Notice("Successfully queued .mp3 file for transcription");
-									}).finally(() => {
-										this.close();
-									});
-								} else {
-									new Notice("Please specify a .mp3 URL and an accuracy level.")
-								}
-							})
-					);
-			} else {
-				contentEl.createEl("p", { text: "Please set a valid Audio Notes API key in the settings." });
-				contentEl.createEl("p", { text: "If you do not have an API key, contact the maintainer of this plugin. See the README at https://github.com/jjmaldonis/obsidian-audio-notes for more information." });
-			}
-		});
-	}
-
-	onClose() {
-		let { contentEl } = this;
-		contentEl.empty();
-	}
-}
-
-
-export class CreateNewAudioNoteInNewFileModal extends FuzzySuggestModal<TFile> {
-	constructor(app: App, private mp3Files: TFile[]) {
-		super(app);
-		// this.setInstructions([{ "command": "Select mp3 file from vault or enter a URL to an mp3 file online", "purpose": "" }]);
-		this.setPlaceholder("or select an mp3 file from your vault using the dropdown below:")
-	}
-
-	getItems(): TFile[] {
-		return this.mp3Files;
-	}
-
-	getItemText(file: TFile): string {
-		return file.path;
-	}
-
-	onOpen(): void {
-		super.onOpen();
-		const header = createEl("h1", { text: "Create new Audio Note file from mp3", cls: "create-new-audio-note-file-title" })
-		const prompt = Array.from(this.containerEl.childNodes)[1];
-
-		const pasteUrlContainer = createDiv({ cls: "create-new-audio-note-file-url-container" });
-		const urlInputContainer = pasteUrlContainer.createDiv({ cls: "prompt-input-container create-new-audio-note-file-prompt-input-container" });
-		const urlInput = urlInputContainer.createEl("input", { placeholder: `Paste a URL to an online mp3 file...`, cls: "prompt-input create-new-audio-note-file-input-element" })
-		const submitUrlButton = pasteUrlContainer.createEl("button", { cls: "mod-cta create-new-audio-note-file-submit-button", text: "Create new note from URL" });
-		submitUrlButton.addEventListener('click', () => {
-			const url = urlInput.value;
-			const urlParts = url.split("/");
-			const lastPart = urlParts[urlParts.length - 1];
-			const title = lastPart.split("?")[0].replace(/.mp3/g, "");
-			const newNoteFilename = title + ".md";
-			this.createNewAudioNoteFile(url, newNoteFilename, title);
-			this.close();
-		});
-
-		const nodes: Node[] = [header, pasteUrlContainer];
-		for (const node of Array.from(prompt.childNodes)) {
-			nodes.push(node);
-		}
-
-		prompt.setChildrenInPlace(nodes);
-	}
-
-	onChooseItem(file: TFile, evt: MouseEvent | KeyboardEvent) {
-		const newNoteFilename = file.path.split(".").slice(0, file.path.split(".").length - 1).join(".") + ".md"
-		let title = file.name;
-		title = file.name.slice(0, file.name.length - (file.extension.length + 1));
-		title = title.replace(/-/g, " ");
-		title = title.replace(/_/g, " ");
-		title = title.split(" ").map((part: string) => part.charAt(0).toUpperCase() + part.slice(1, undefined)).join(" ");
-		this.createNewAudioNoteFile(file.path, newNoteFilename, title);
-	}
-
-	createNewAudioNoteFile(audioFilename: string, newNoteFilename: string, title: string) {
-		const newNoteContents = `\`\`\`audio-note
-audio: ${audioFilename}
-transcript: ${audioFilename}
-title: ${title}
-\`\`\`
-`;
-		const numberOfLines = 5;
-		this.app.vault.create(newNoteFilename, newNoteContents).then((newNote: TFile) => {
-			// Create the file and open it in the active leaf
-			const leaf = this.app.workspace.getLeaf(false);
-			leaf.openFile(newNote).then(() => {
-				const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (view) {
-					view.editor.setCursor(numberOfLines);
-				}
-			});
-		}).catch((error: any) => {
-			new Notice(`Could not create new audio note file: ${newNoteFilename}`);
-			new Notice(`${error}`);
-		});
-	}
-}
-
-
 export default class AutomaticAudioNotes extends Plugin {
 	settings: AudioNotesSettings;
 	knownCurrentTimes: Map<string, number> = new Map();
-	knownAudioPlayers: DefaultMap<string, HTMLElement[]> = new DefaultMap(() => []);
+	knownAudioPlayers: AudioElementCache = new AudioElementCache(30);
 	currentlyPlayingAudioFakeUuid: string | null = null;
-
-	private getAudioPlayerIdentify(element: HTMLElement): string {
-		const knownPlayerFakeUuid = element.id.split("-")[element.id.split("-").length - 1];
-		if (!knownPlayerFakeUuid) {
-			throw new Error("Could not find audio's identifier from the above element.")
-		}
-		return knownPlayerFakeUuid;
-	}
 
 	private getCurrentlyPlayerAudioElement(): HTMLMediaElement | null {
 		if (this.currentlyPlayingAudioFakeUuid) {
-			const knownPlayers = this.knownAudioPlayers.get(this.currentlyPlayingAudioFakeUuid);
+			const knownPlayers = this.knownAudioPlayers.getAudioContainersWithTheSameSrc(this.currentlyPlayingAudioFakeUuid);
 			for (const knownPlayer of knownPlayers) {
-				const knownPlayerFakeUuid = this.getAudioPlayerIdentify(knownPlayer);
+				const knownPlayerFakeUuid = getAudioPlayerIdentify(knownPlayer);
 				if (knownPlayerFakeUuid === this.currentlyPlayingAudioFakeUuid) {
 					const player = (knownPlayer.find("audio")! as HTMLMediaElement);
 					if (player) {
@@ -714,7 +102,7 @@ export default class AutomaticAudioNotes extends Plugin {
 	updateCurrentTimeOfAudio(audio: HTMLMediaElement): void {
 		// There is a minor bug if users delete a src and readd the same src, because the currentTime will change on the new src.
 		this.knownCurrentTimes.set(audio.src, audio.currentTime);
-		const knownAudios = this.knownAudioPlayers.get(this.getAudioPlayerIdentify(audio));
+		const knownAudios = this.knownAudioPlayers.getAudioContainersWithTheSameSrc(getAudioPlayerIdentify(audio));
 		for (const knownPlayer of knownAudios) {
 			const knownAudio = (knownPlayer.find("audio")! as HTMLMediaElement);
 			const knownPlayerFakeUuid = knownPlayer.id.split("-")[knownPlayer.id.split("-").length - 1];
@@ -730,23 +118,35 @@ export default class AutomaticAudioNotes extends Plugin {
 	}
 
 	async onload() {
+		// Log to log.txt file if on mobile and debugging mode is enabled.
 		if (!this.isDesktop && this.getSettingsDebugMode()) {
-			this.monkeyPatchConsole(this);
+			monkeyPatchConsole(this);
 		}
 
-		// Settings
+		// Load Settings
 		await this.loadSettings();
 		this.addSettingTab(new AudioNotesSettingsTab(this.app, this));
+		// Go through the loaded settings and set the timestamps of any src's that have been played in the last 3 months.
+		// Resave the data after filtering out any src's that were played more than 3 months ago.
+		const todayMinusThreeMonthsInMilliseconds = (new Date()).getTime() - 7.884e+9;
 		const data = await this.loadData();
 		if (data) {
-			const positions = data.positions;
+			const positions = data.positions as Object;
+			const newPositions = new Object() as any;
 			if (positions) {
-				for (const [src, time] of Object.entries(positions)) {
-					this.knownCurrentTimes.set(src, time as number);
+				for (const [src, pair] of Array.from(Object.entries(positions))) { // shallow copy the entries for iteration
+					const [time, updatedAt] = pair as [number, number];
+					if (updatedAt > todayMinusThreeMonthsInMilliseconds) {
+						this.knownCurrentTimes.set(src, time);
+						newPositions[src] = [time, updatedAt];
+					}
 				}
 			}
+			data.positions = newPositions;
+			this.saveData(data);
 		}
 
+		// Add all the commands
 		this.addCommand({
 			id: 'create-new-audio-note',
 			name: `Create new Audio Note at current time (+/- ${this.getSettingsPlusMinusDuration()} seconds)`,
@@ -945,32 +345,11 @@ export default class AutomaticAudioNotes extends Plugin {
 			(src, el, ctx) => this.postprocessor(src, el, ctx)
 		);
 
+		// Done!
 		console.log("Audio Notes: Obsidian Audio Notes loaded")
 	}
 
-	monkeyPatchConsole = (plugin: Plugin) => {
-		if (!Platform.isMobile) {
-			return;
-		}
-
-		const logFile = `${plugin.manifest.dir}/logs.txt`;
-		const logs: string[] = [];
-		const logMessages = (prefix: string) => (...messages: unknown[]) => {
-			logs.push(`\n[${prefix}]`);
-			for (const message of messages) {
-				logs.push(String(message));
-			}
-			plugin.app.vault.adapter.write(logFile, logs.join(" "));
-		};
-
-		console.debug = logMessages("debug");
-		console.error = logMessages("error");
-		console.info = logMessages("info");
-		console.log = logMessages("log");
-		console.warn = logMessages("warn");
-	};
-
-	replaceElementWithError(el: HTMLElement, error: Error): void {
+	_replaceElementWithError(el: HTMLElement, error: Error): void {
 		const pre = createEl("pre");
 		pre.createEl("code", {
 			attr: {
@@ -1011,17 +390,9 @@ export default class AutomaticAudioNotes extends Plugin {
 					"";
 
 			const audioNote = this.createAudioNoteFromSrc(src);
-			const admonitionType = "quote";
-			const theDiv = this._createAudioNoteDiv(audioNote, admonitionType, currentMdFilename, ctx);
+			const theDiv = this._createAudioNoteDiv(audioNote, currentMdFilename, ctx);
 
-			// Replace the <pre> tag with the new admonition.
-			const parent = el.parentElement;
-			if (parent) {
-				parent.addClass(
-					"admonition-parent",
-					`admonition-${admonitionType}-parent`
-				);
-			}
+			// Replace the <pre> tag with the new callout div.
 			el.replaceWith(theDiv);
 
 			const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
@@ -1031,28 +402,24 @@ export default class AutomaticAudioNotes extends Plugin {
 				const generatedAudioDiv = this.getAudioHTMLMediaElementsInMode(theDiv);
 				const allPlayers = [...playersInSource, ...playersInReading, ...generatedAudioDiv];
 				for (const player of allPlayers) {
-					const knownPlayers: HTMLElement[] = this.knownAudioPlayers.get(this.getAudioPlayerIdentify(player));
-					const knownPlayerIds: string[] = knownPlayers.map(p => p.id);
-					if (!knownPlayerIds.includes(player.id)) {
-						knownPlayers.push(player)
-					}
+					this.knownAudioPlayers.add(player);
 				}
 			}
 
 			return null;
 		} catch (error) {
 			console.error(`Audio Notes: ${error}`);
-			this.replaceElementWithError(el, error);
+			this._replaceElementWithError(el, error);
 		}
 	}
 
-	private _createAudioNoteDiv(audioNote: AudioNote, admonitionType: string, currentMdFilename: string, ctx?: MarkdownPostProcessorContext): HTMLElement {
+	private _createAudioNoteDiv(audioNote: AudioNote, currentMdFilename: string, ctx?: MarkdownPostProcessorContext): HTMLElement {
 		// Create the main div.
 		const calloutDiv = createDiv({
 			cls: `callout audio-note ${""
 				}`,
 			attr: {
-				"data-callout": admonitionType,
+				"data-callout": "quote",
 				"data-callout-fold": ""
 			}
 		});
@@ -1077,7 +444,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		}
 
 		// Add the quote to the div.
-		const contentEl: HTMLDivElement = calloutDiv.createDiv("callout-content admonition-content");
+		const contentEl: HTMLDivElement = calloutDiv.createDiv("callout-content");
 		let text = "";
 		if (audioNote.quote) {
 			text += audioNote.quote;
@@ -1972,7 +1339,7 @@ export default class AutomaticAudioNotes extends Plugin {
 			if (!data.positions) {
 				data.positions = new Object();
 			}
-			data.positions[audio.currentSrc] = audio.currentTime;
+			data.positions[audio.currentSrc] = [audio.currentTime, (new Date()).getTime()];
 			await this.saveData(data);
 		}
 	}
