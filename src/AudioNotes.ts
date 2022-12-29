@@ -242,6 +242,7 @@ export class AudioElementCache {
 			const filteredPairs = pairs.filter((pair: [HTMLElement, number]) => pair[1] > oldest);
 			if (pairs.length !== filteredPairs.length) {
 				this.cache.set(id, filteredPairs);
+				this.count -= (pairs.length - filteredPairs.length); // Subtract the size difference of the arrays, which is the number of elements removed.
 			}
 		}
 	}
