@@ -234,7 +234,7 @@ export default class AutomaticAudioNotes extends Plugin {
 			name: 'Create new Audio Note in new file',
 			callback: async () => {
 				const allFiles = this.app.vault.getFiles();
-				const mp3Files = allFiles.filter((file: TFile) => file.extension === "mp3");
+				const mp3Files = allFiles.filter((file: TFile) => file.extension === "mp3" || file.extension === "m4b" || file.extension === "m4a");
 				new CreateNewAudioNoteInNewFileModal(this.app, mp3Files).open();
 			}
 		});
@@ -479,7 +479,7 @@ export default class AutomaticAudioNotes extends Plugin {
 	private _getFullAudioSrcPath(audioNote: AudioNote): string | undefined {
 		let audioSrcPath: string | undefined = undefined;
 		// If the filename is a link, don't look for it in the vault.
-		if (audioNote.audioFilename.startsWith("https")) {
+		if (audioNote.audioFilename.startsWith("https") || audioNote.audioFilename.startsWith("http")) {
 			audioSrcPath = audioNote.audioFilename;
 		} else {
 			// If the file isn't a link, look for it in the vault and get its full file path.
