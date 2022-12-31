@@ -118,11 +118,6 @@ export default class AutomaticAudioNotes extends Plugin {
 	}
 
 	async onload() {
-		// Log to log.txt file if on mobile and debugging mode is enabled.
-		if (!this.isDesktop && this.getSettingsDebugMode()) {
-			monkeyPatchConsole(this);
-		}
-
 		// Load Settings
 		await this.loadSettings();
 		this.addSettingTab(new AudioNotesSettingsTab(this.app, this));
@@ -144,6 +139,11 @@ export default class AutomaticAudioNotes extends Plugin {
 			}
 			data.positions = newPositions;
 			this.saveData(data);
+		}
+
+		// Log to log.txt file if on mobile and debugging mode is enabled.
+		if (!this.isDesktop && this.getSettingsDebugMode()) {
+			monkeyPatchConsole(this);
 		}
 
 		// Add all the commands
