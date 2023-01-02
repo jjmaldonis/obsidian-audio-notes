@@ -83,7 +83,7 @@ export class AudioNotesSettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Audio Notes API Key')
-			.setDesc('Provided by the library maintainer for paying users.Used to work with transcripts online.')
+			.setDesc('Provided by the library maintainer to work with transcripts online. Go to github.com/jjmaldonis/obsidian-audio-notes for info about how to join the early beta.')
 			.addText((text) =>
 				text
 					.setPlaceholder('<your api key>')
