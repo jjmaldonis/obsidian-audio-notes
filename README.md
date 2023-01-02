@@ -87,7 +87,7 @@ This is the best way I've found to take notes:
 6. When you're done, sync your note back to your computer and edit the quotes.
 7. Finish the note by highlighting or summarizing the things you most want to remember.
 
-Here's a vidoe of using <strong>Audio Notes</strong> on your phone.
+Here's a video of using <strong>Audio Notes</strong> on your phone.
 
 <img src="assets/audio-notes-example-mobile_exported_0.jpg" href="https://audio-notes-public.s3.amazonaws.com/audio-notes-example-mobile.mp4" style="width:200px"/>
 
@@ -193,9 +193,9 @@ After you submit a URL, it goes into a queue for processing. Once the .mp3 is pr
 
 Note that the `transcript` is set to the mp3's URL.
 
-Here is an example of how it all works:
+Here's a video of how it all works:
 
-<img src="https://audio-notes-public.s3.amazonaws.com/audio-notes-online-transcription-example.mp4" href="https://audio-notes-public.s3.amazonaws.com/audio-notes-online-transcription-example.mp4" style="width:200px"/>
+[<img src="assets/audio-notes-online-transcription-example_exported_0.png" style="width:200px">](https://audio-notes-public.s3.amazonaws.com/audio-notes-online-transcription-example.mp4")
 
 #### Pricing
 
