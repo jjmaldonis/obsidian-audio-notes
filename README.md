@@ -89,7 +89,7 @@ This is the best way I've found to take notes:
 
 Here's a video of using <strong>Audio Notes</strong> on your phone.
 
-<img src="assets/audio-notes-example-mobile_exported_0.jpg" href="https://audio-notes-public.s3.amazonaws.com/audio-notes-example-mobile.mp4" style="width:200px"/>
+[<img src="assets/audio-notes-example-mobile_exported_0.jpg" style="width:200px" target="_blank">](https://audio-notes-public.s3.amazonaws.com/audio-notes-example-mobile.mp4)
 
 ## Generating a Transcript
 
@@ -195,7 +195,7 @@ Note that the `transcript` is set to the mp3's URL.
 
 Here's a video of how it all works:
 
-[<img src="assets/audio-notes-online-transcription-example_exported_0.png" style="width:200px">](https://audio-notes-public.s3.amazonaws.com/audio-notes-online-transcription-example.mp4")
+[<img src="assets/audio-notes-online-transcription-example_exported_0.png" style="width:200px" target="_blank">](https://audio-notes-public.s3.amazonaws.com/audio-notes-online-transcription-example.mp4)
 
 #### Pricing
 
