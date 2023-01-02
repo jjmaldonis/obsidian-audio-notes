@@ -193,6 +193,10 @@ After you submit a URL, it goes into a queue for processing. Once the .mp3 is pr
 
 Note that the `transcript` is set to the mp3's URL.
 
+Here is an example of how it all works:
+
+<img src="assets/audio-notes-online-transcription-example_exported_0.png" href="https://audio-notes-public.s3.amazonaws.com/audio-notes-online-transcription-example.mp4" style="width:200px"/>
+
 #### Pricing
 
 I would love to be able to provide this online transcription service for free. Unfortunately, the costs are prohibitive. For example, [replicate.com](https://www.replicate.com) charges over $8.00 _per hour!_ of audio for transcribing audio to text with high accuracy. If a podcast is an hour long, that would be $8.00 just to get a highly accurate transcript. I am doing my best to keep costs low, which is why I am running a Beta program.
