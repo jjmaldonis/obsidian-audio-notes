@@ -195,7 +195,7 @@ Note that the `transcript` is set to the mp3's URL.
 
 Here is an example of how it all works:
 
-<img src="assets/audio-notes-online-transcription-example_exported_0.png" href="https://audio-notes-public.s3.amazonaws.com/audio-notes-online-transcription-example.mp4" style="width:200px"/>
+<img src="https://audio-notes-public.s3.amazonaws.com/audio-notes-online-transcription-example.mp4" href="https://audio-notes-public.s3.amazonaws.com/audio-notes-online-transcription-example.mp4" style="width:200px"/>
 
 #### Pricing
 
