@@ -63,11 +63,6 @@ If you're on your computer, you can use hotkeys to control the currently-playing
 - `Ctrl + Shift + Space`: Toggle play/pause
 - `Ctrl + Shift + N`: Create new audio note at current time
 - `Ctrl + Shift + G`: Regenerate current audio note
-- `Ctrl + Shift + S`: Summarize selection using OpenAI
-
-#### Summarize Text
-
-As an addon, a command to summarize text is included in the plugin. You can select a body of text and run the command `Summarize selection using OpenAI` to summarize the text you have selected. Your OpenAI API key must be set in the settings.
 
 ## Using on Mobile
 
@@ -170,7 +165,7 @@ I'm running a Beta program for new users right now. It has limited access, and t
 
 To use this workflow, you submit a URL to an .mp3 file. The .mp3 file will be processed in the cloud to generate a transcript. After that, the transcript will be used automatically by <strong>Audio Notes</strong> to generate quotes whenever you take a note.
 
-Due to the costs of processing the transcript, I have no choice but to charge for it. I would love to provide it for free, but the costs are non-trivial. As an example, [replicate.com](https://www.replicate.com) charges over $8.00 _per hour!_ of audio for transcribing audio to text with high accuracy. If a podcast is an hour long, that would be $8.00 just to get a highly accurate transcript. I am doing my best to keep costs low, which is why I am running a Beta program.
+Due to the costs of processing the transcript, I have no choice but to charge for it. I would love to provide it for free, but the costs are non-trivial. As an example, [replicate.com](https://www.replicate.com) charges over $8.00 _per hour!_ for transcribing audio to text with high accuracy. If a podcast is an hour long, that would be $8.00 just to get a highly accurate transcript. I am doing my best to keep costs low, which is why I am running a Beta program.
 
 The pricing below is honestly a fantastic deal.
 
@@ -199,7 +194,7 @@ Here's a video of how it all works:
 
 #### Pricing
 
-I would love to be able to provide this online transcription service for free. Unfortunately, the costs are prohibitive. For example, [replicate.com](https://www.replicate.com) charges over $8.00 _per hour!_ of audio for transcribing audio to text with high accuracy. If a podcast is an hour long, that would be $8.00 just to get a highly accurate transcript. I am doing my best to keep costs low, which is why I am running a Beta program.
+I would love to be able to provide this online transcription service for free. Unfortunately, the costs are prohibitive. For example, [replicate.com](https://www.replicate.com) charges over $8.00 _per hour!_ for transcribing audio to text with high accuracy. If a podcast is an hour long, that would be $8.00 just to get a highly accurate transcript. I am doing my best to keep costs low, which is why I am running a Beta program.
 
 Costs scale with accuracy, so the price tiers increase based on the accuracy level you want.
 
