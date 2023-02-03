@@ -70,18 +70,6 @@ export class AudioNotesSettingsTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName('OpenAI API Key')
-			.setDesc('Used for summarization of text. To create an API key, go to: https://beta.openai.com/account/api-keys')
-			.addText((text) =>
-				text
-					.setPlaceholder('<your OpenAI api key>')
-					.setValue(this.plugin.settings.openAiApiKey)
-					.onChange(async (value) => {
-						this.plugin.settings.openAiApiKey = value;
-						await this.plugin.saveSettings();
-					}));
-
-		new Setting(containerEl)
 			.setName('Audio Notes API Key')
 			.setDesc('Provided by the library maintainer for paying users.Used to work with transcripts online.')
 			.addText((text) =>
@@ -152,7 +140,6 @@ export interface AudioNotesSettings {
 	plusMinusDuration: string;
 	backwardStep: string;
 	forwardStep: string;
-	openAiApiKey: string;
 	audioNotesApiKey: string;
 	debugMode: boolean;
 }
@@ -161,7 +148,6 @@ export const DEFAULT_SETTINGS: Partial<AudioNotesSettings> = {
 	plusMinusDuration: "30",
 	backwardStep: "5",
 	forwardStep: "15",
-	openAiApiKey: "",
 	audioNotesApiKey: "",
 	debugMode: false,
 };

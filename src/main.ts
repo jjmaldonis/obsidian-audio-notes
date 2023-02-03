@@ -87,10 +87,6 @@ export default class AutomaticAudioNotes extends Plugin {
 		return parseFloat(this.settings.forwardStep);
 	}
 
-	getSettingsOpenAiApiKey(): string {
-		return this.settings.openAiApiKey;
-	}
-
 	getSettingsAudioNotesApiKey(): string {
 		return this.settings.audioNotesApiKey;
 	}
@@ -236,20 +232,6 @@ export default class AutomaticAudioNotes extends Plugin {
 				const allFiles = this.app.vault.getFiles();
 				const mp3Files = allFiles.filter((file: TFile) => file.extension === "mp3" || file.extension === "m4b" || file.extension === "m4a");
 				new CreateNewAudioNoteInNewFileModal(this.app, mp3Files).open();
-			}
-		});
-
-		this.addCommand({
-			id: 'summarize-using-openai',
-			name: 'Summarize Selection using OpenAI',
-			editorCallback: async (editor: Editor, view: MarkdownView) => {
-				const selectedText = editor.getSelection();
-				const summaryPrompt = `Summarize this text into one paragraph.\n\nText:\n${selectedText}\n\nSummary:\n`
-				// const summaryPrompt = `Summarize this text into one paragraph, emphasizing accuracy.\n\nText:\n${selectedText}\n\nSummary:\n`
-				const summary = await this.summarizeTextUsingOpenAI(summaryPrompt);
-				if (summary) {
-					editor.replaceSelection(`${selectedText}\n> Summary: ${summary}`);
-				}
 			}
 		});
 
@@ -1261,58 +1243,6 @@ export default class AutomaticAudioNotes extends Plugin {
 
 		// Tell the user the generation is complete.
 		new Notice('Audio Note generation complete!');
-	}
-
-	async summarizeTextUsingOpenAI(toSummarize: string): Promise<string | undefined> {
-		// Some basic info about summarization, with an example API call, can be found here: https://beta.openai.com/examples/default-tldr-summary
-
-		// For English text, 1 token is approximately 4 characters or 0.75 words.
-		const fractionOfPrompt: number = 0.5;
-		const minCharacters = 75;
-		const maxCharacters = 500;
-		let tokens = Math.ceil(toSummarize.length * fractionOfPrompt);
-		if (tokens < minCharacters) {
-			tokens = minCharacters;
-		} else if (tokens > maxCharacters) {
-			tokens = maxCharacters;
-		}
-		// Convert from characters to tokens.
-		tokens = Math.floor(tokens / 4);
-
-		// https://beta.openai.com/docs/models/gpt-3
-		const model = "text-davinci-003" // the best
-		// const model = "text-curie-001" // also good at summarization
-
-		try {
-			// console.info(`Summarizing text:\n${toSummarize}\nwith max length of ${tokens * 4} characters, or ${tokens} tokens, or ~ ${tokens * 0.75} words.`)
-			new Notice("Summarizing text using OpenAI ...", 3000);
-			const response = await request({
-				url: 'https://api.openai.com/v1/completions',
-				method: 'POST',
-				headers: {
-					'Authorization': `Bearer ${this.getSettingsOpenAiApiKey()}`,
-					'Content-Type': 'application/json'
-				},
-				contentType: 'application/json',
-				body: JSON.stringify({
-					"model": model,
-					"prompt": toSummarize,
-					"max_tokens": tokens,
-					"temperature": 0.3,
-					"best_of": 3,
-					"n": 1,
-				})
-			});
-
-			const json = JSON.parse(response);
-			const result: string = json.choices[0].text;
-			// console.info(`Result is:\n${result}\nwith ${result.length} characters and ${result.split(/\s/).length} words.`)
-			return result;
-		} catch (error) {
-			console.error(error);
-			new Notice(`Could not summarize text: ${error}`, 3000);
-			return undefined;
-		}
 	}
 
 	onunload() {
