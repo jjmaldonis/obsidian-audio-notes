@@ -16,7 +16,7 @@ export class AudioNotesSettingsTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName("+/- duration (seconds) when generating new nodes")
+			.setName("+/- duration (seconds) when generating new notes")
 			.setDesc("The amount of time add to and subtract from the current time when creating new audio notes")
 			.addText((text) =>
 				text
