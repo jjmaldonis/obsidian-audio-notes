@@ -28,7 +28,14 @@ export class CreateNewAudioNoteInNewFileModal extends FuzzySuggestModal<TFile> {
 			const url = urlInput.value;
 			const urlParts = url.split("/");
 			const lastPart = urlParts[urlParts.length - 1];
-			const title = lastPart.split("?")[0].replace(/.mp3/g, "");
+			let title = lastPart.split("?")[0];
+			if (title.includes(".mp3")) {
+				title = title.replace(/.mp3/g, "");
+			} else if (title.includes(".m4b")) {
+				title = title.replace(/.m4b/g, "");
+			} else if (title.includes(".m4a")) {
+				title = title.replace(/.m4a/g, "");
+			}
 			const newNoteFilename = title + ".md";
 			this.createNewAudioNoteFile(url, newNoteFilename, title);
 			this.close();

@@ -73,7 +73,7 @@ export class EnqueueAudioModal extends Modal {
 							.onClick(() => {
 								if (select.value && this.url) {
 									const splitUrl = this.url.split("?");
-									const endsWithMp3 = splitUrl[0].endsWith(".mp3");
+									const endsWithMp3 = splitUrl[0].endsWith(".mp3") || splitUrl[0].endsWith(".m4b") || splitUrl[0].endsWith(".m4a");
 									if (endsWithMp3) {
 										// Make the request to enqueue the item
 										request({
@@ -93,7 +93,7 @@ export class EnqueueAudioModal extends Modal {
 											this.close();
 										});
 									} else {
-										new Notice("Make sure your URL is an .mp3 file. It should end in .mp3 (excluding everything after an optional question mark).", 10000)
+										new Notice("Make sure your URL is an .mp3, .m4b, or .m4a file. It should end in one of those extensions (excluding everything after an optional question mark).", 10000)
 									}
 								} else {
 									new Notice("Please specify a .mp3 URL and an accuracy level.")
