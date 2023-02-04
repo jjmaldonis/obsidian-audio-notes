@@ -7,7 +7,6 @@ import {
 	Notice,
 	TFile,
 	Platform,
-	Editor,
 	request,
 } from 'obsidian';
 

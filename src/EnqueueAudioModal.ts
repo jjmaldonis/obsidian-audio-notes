@@ -1,6 +1,109 @@
 import { Modal, App, Setting, Notice, request } from "obsidian";
 
 
+const WHISPER_LANGUAGE_CODES = [
+    ["en", "English"],
+    ["zh", "Chinese"],
+    ["de", "German"],
+    ["es", "Spanish"],
+    ["ru", "Russian"],
+    ["ko", "Korean"],
+    ["fr", "French"],
+    ["ja", "Japanese"],
+    ["pt", "Portuguese"],
+    ["tr", "Turkish"],
+    ["pl", "Polish"],
+    ["ca", "Catalan"],
+    ["nl", "Dutch"],
+    // ["ar", "Arabic"],
+    // ["sv", "Swedish"],
+    ["it", "Italian"],
+    // ["id", "Indonesian"],
+    ["hi", "Hindi"],
+    // ["fi", "Finnish"],
+    ["vi", "Vietnamese"],
+    // ["he", "Hebrew"],
+    ["uk", "Ukrainian"],
+    ["el", "Greek"],
+    // ["ms", "Malay"],
+    ["cs", "Czech"],
+    ["ro", "Romanian"],
+    ["da", "Danish"],
+    ["hu", "Hungarian"],
+    // ["ta", "Tamil"],
+    // ["no", "Norwegian"],
+    ["th", "Thai"],
+    // ["ur", "Urdu"],
+    // ["hr", "Croatian"],
+    // ["bg", "Bulgarian"],
+    // ["lt", "Lithuanian"],
+    // ["la", "Latin"],
+    // ["mi", "Maori"],
+    // ["ml", "Malayalam"],
+    // ["cy", "Welsh"],
+    // ["sk", "Slovak"],
+    // ["te", "Telugu"],
+    // ["fa", "Persian"],
+    // ["lv", "Latvian"],
+    // ["bn", "Bengali"],
+    // ["sr", "Serbian"],
+    // ["az", "Azerbaijani"],
+    // ["sl", "Slovenian"],
+    // ["kn", "Kannada"],
+    // ["et", "Estonian"],
+    // ["mk", "Macedonian"],
+    // ["br", "Breton"],
+    // ["eu", "Basque"],
+    // ["is", "Icelandic"],
+    // ["hy", "Armenian"],
+    // ["ne", "Nepali"],
+    // ["mn", "Mongolian"],
+    // ["bs", "Bosnian"],
+    // ["kk", "Kazakh"],
+    // ["sq", "Albanian"],
+    // ["sw", "Swahili"],
+    // ["gl", "Galician"],
+    // ["mr", "Marathi"],
+    // ["pa", "Punjabi"],
+    // ["si", "Sinhala"],
+    // ["km", "Khmer"],
+    // ["sn", "Shona"],
+    // ["yo", "Yoruba"],
+    // ["so", "Somali"],
+    // ["af", "Afrikaans"],
+    // ["oc", "Occitan"],
+    // ["ka", "Georgian"],
+    // ["be", "Belarusian"],
+    // ["tg", "Tajik"],
+    // ["sd", "Sindhi"],
+    // ["gu", "Gujarati"],
+    // ["am", "Amharic"],
+    // ["yi", "Yiddish"],
+    // ["lo", "Lao"],
+    // ["uz", "Uzbek"],
+    // ["fo", "Faroese"],
+    // ["ht", "Haitian creole"],
+    // ["ps", "Pashto"],
+    // ["tk", "Turkmen"],
+    // ["nn", "Nynorsk"],
+    // ["mt", "Maltese"],
+    // ["sa", "Sanskrit"],
+    // ["lb", "Luxembourgish"],
+    // ["my", "Myanmar"],
+    // ["bo", "Tibetan"],
+    // ["tl", "Tagalog"],
+    // ["mg", "Malagasy"],
+    // ["as", "Assamese"],
+    // ["tt", "Tatar"],
+    // ["haw", "Hawaiian"],
+    // ["ln", "Lingala"],
+    // ["ha", "Hausa"],
+    // ["ba", "Bashkir"],
+    // ["jw", "Javanese"],
+    // ["su", "Sundanese"],
+]
+
+
 export class ApiKeyInfo {
 	constructor(
 		public api_key: string,
@@ -65,6 +168,17 @@ export class EnqueueAudioModal extends Modal {
 					}
 				}
 
+				const selectLanguage = contentEl.createEl("select", {
+					cls: "select-model-accuracy"
+				});
+				for (const langs of WHISPER_LANGUAGE_CODES) {
+					const langCode = langs[0];
+					const langName = langs[1];
+					const option = selectLanguage.createEl("option");
+					option.value = langCode;
+					option.textContent = langName;
+				}
+
 				new Setting(contentEl)
 					.addButton((btn) =>
 						btn
@@ -86,6 +200,7 @@ export class EnqueueAudioModal extends Modal {
 											body: JSON.stringify({
 												"url": this.url,
 												"model": select.value.toUpperCase(),
+												"language": selectLanguage.value.toLowerCase(),
 											})
 										}).then((r: any) => {
 											new Notice("Successfully queued .mp3 file for transcription");
@@ -96,7 +211,7 @@ export class EnqueueAudioModal extends Modal {
 										new Notice("Make sure your URL is an .mp3, .m4b, or .m4a file. It should end in one of those extensions (excluding everything after an optional question mark).", 10000)
 									}
 								} else {
-									new Notice("Please specify a .mp3 URL and an accuracy level.")
+									new Notice("Please specify a .mp3 URL, an accuracy level, and a language.")
 								}
 							})
 					);

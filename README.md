@@ -1,4 +1,4 @@
-![version](https://img.shields.io/badge/version-0.2.5-blue)
+![version](https://img.shields.io/badge/version-0.2.6-blue)
 ![license](https://img.shields.io/badge/license-MIT-brightgreen)
 <a href='https://ko-fi.com/jjmaldonis' target='_blank'><img height='20' style='border:0px;height:26px;margin-bottom:-2.5px;' src='https://az743702.vo.msecnd.net/cdn/kofi3.png?v=0' border='0' alt='Buy Me a Coffee :)' /></a>
 
@@ -217,5 +217,3 @@ After I have replied to you, you'll be able to subscribe on [Ko-Fi](https://ko-f
 I will then send you an API key to use, and you'll be able to start generating transcripts!
 
 If you are overloading the service, I may ask you to slow down your requests so other people can use the service and get their transcripts quickly.
-
-Currently, only English is supported. If you would like to have transcriptions in a different language, please email me.
