@@ -17,6 +17,7 @@ import { ApiKeyInfo, EnqueueAudioModal } from './EnqueueAudioModal';
 import { generateRandomString, getIcon, secondsToTimeString, timeStringToSeconds } from './utils';
 import { AudioNotesSettings, AudioNotesSettingsTab, DEFAULT_SETTINGS } from './AudioNotesSettings';
 import { AudioElementCache, AudioNote, AudioNoteWithPositionInfo, getAudioPlayerIdentify } from './AudioNotes';
+import { Transcript, parseTranscript } from './Transcript';
 
 // Load Font-Awesome stuff
 import { library } from "@fortawesome/fontawesome-svg-core";
@@ -956,7 +957,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		return audioNote;
 	}
 
-	createAudioNoteSrc(audioNote: AudioNote, transcript: string | undefined, view: MarkdownView): string | undefined {
+	createAudioNoteSrc(audioNote: AudioNote, transcript: Transcript | undefined, view: MarkdownView): string | undefined {
 		if (audioNote.quote && audioNote.quote.includes("`")) {
 			new Notice("Before the generation can be run, you must remove any audio notes that have the character ` in their quote.", 10000);
 			return undefined;
@@ -1007,9 +1008,8 @@ export default class AutomaticAudioNotes extends Plugin {
 		return newAudioNoteText;
 	}
 
-	private _getQuoteFromTranscript(quoteStart: number, quoteEnd: number, transcriptContents: string): [number, number, string] {
+	private _getQuoteFromTranscript(quoteStart: number, quoteEnd: number, transcript: Transcript): [number, number, string] {
 		// Get the relevant part of the transcript.
-		const transcript = JSON.parse(transcriptContents); // For now, use the file format defined by OpenAI Whisper
 		const segments = transcript.segments;
 		const result = [];
 		let start = undefined;
@@ -1048,6 +1048,11 @@ export default class AutomaticAudioNotes extends Plugin {
 				}
 			}
 		}
+		if (start === undefined || end === undefined) {
+			new Notice("Transcript file does not have start or end times for at least one text entry.");
+			console.error(segments);
+			throw new Error("Transcript file does not have start or end times for at least one text entry.");
+		}
 		return [start, end, quoteText];
 	}
 
@@ -1074,10 +1079,10 @@ export default class AutomaticAudioNotes extends Plugin {
 		}
 	}
 
-	async getTranscript(transcriptFilename: string | undefined, checkFiles: boolean = true): Promise<string | undefined> {
+	async getTranscript(transcriptFilename: string | undefined, checkFiles: boolean = true): Promise<Transcript | undefined> {
 		let transcript: string | undefined = undefined;
 		if (transcriptFilename !== undefined) {
-			if (checkFiles && transcriptFilename.endsWith(".json")) {
+			if (checkFiles && (transcriptFilename.endsWith(".json") || transcriptFilename.endsWith(".srt"))) {
 				const translationFilesContents = await this.loadFiles([transcriptFilename]);
 				transcript = translationFilesContents.get(transcriptFilename);
 			}
@@ -1093,11 +1098,11 @@ export default class AutomaticAudioNotes extends Plugin {
 				});
 			}
 		}
-		return transcript;
+		return transcript ? parseTranscript(transcript) : undefined;
 	}
 
 	async createNewAudioNoteAtEndOfFile(view: MarkdownView, audioNote: AudioNote): Promise<void> {
-		let transcript: string | undefined = await this.getTranscript(audioNote.transcriptFilename);
+		let transcript: Transcript | undefined = await this.getTranscript(audioNote.transcriptFilename);
 
 		const newAudioNoteSrc = this.createAudioNoteSrc(audioNote, transcript, view);
 		if (newAudioNoteSrc) {
@@ -1139,7 +1144,11 @@ export default class AutomaticAudioNotes extends Plugin {
 				translationFilenames.push(audioNote.transcriptFilename);
 			}
 		}
-		const translationFilesContents = await this.loadFiles(translationFilenames);
+		const transcriptContents = await this.loadFiles(translationFilenames);
+		const transcripts: Map<string, Transcript> = new Map();
+		for (const [filename, contents] of transcriptContents.entries()) {
+			transcripts.set(filename, parseTranscript(contents));
+		}
 
 		// Must go from bottom to top so the editor position doesn't change!
 		audioNotes.reverse()
@@ -1149,7 +1158,7 @@ export default class AutomaticAudioNotes extends Plugin {
 					new Notice("No transcript file defined for audio note.", 10000);
 					continue;
 				}
-				let transcript = translationFilesContents.get(audioNote.transcriptFilename);
+				let transcript = transcripts.get(audioNote.transcriptFilename);
 				if (transcript === undefined) {
 					transcript = await this.getTranscript(audioNote.transcriptFilename, false);
 				}
@@ -1228,7 +1237,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		if (!audioNote.transcriptFilename) {
 			return;
 		}
-		let transcript: string | undefined = await this.getTranscript(audioNote.transcriptFilename);
+		let transcript: Transcript | undefined = await this.getTranscript(audioNote.transcriptFilename);
 
 		const newAudioNoteSrc = this.createAudioNoteSrc(audioNote, transcript, view);
 		if (newAudioNoteSrc) {

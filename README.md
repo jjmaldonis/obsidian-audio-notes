@@ -1,4 +1,4 @@
-![version](https://img.shields.io/badge/version-0.2.6-blue)
+![version](https://img.shields.io/badge/version-0.2.7-blue)
 ![license](https://img.shields.io/badge/license-MIT-brightgreen)
 <a href='https://ko-fi.com/jjmaldonis' target='_blank'><img height='20' style='border:0px;height:26px;margin-bottom:-2.5px;' src='https://az743702.vo.msecnd.net/cdn/kofi3.png?v=0' border='0' alt='Buy Me a Coffee :)' /></a>
 
@@ -33,7 +33,7 @@ To create one, you must specify an audio file and can set a few other attributes
 
 ## How to Use the Plugin
 
-Find the .mp3 file you want to take notes on and move it into your vault. You may want to generate a transcript file to allow <strong>Audio Notes</strong> to automatically insert the transcript of the audio (see below).
+Find the .mp3 (or .m4a or .m4b) file you want to take notes on and move it into your vault. You may want to generate a transcript file to allow <strong>Audio Notes</strong> to automatically insert the transcript of the audio (see below).
 
 Once your .mp3 file is in your vault, run the command `Create new Audio Note in new file`. After you select your mp3 file, create a new note is created with an Audio Note that looks like this:
 
@@ -88,7 +88,11 @@ Here's a video of using <strong>Audio Notes</strong> on your phone.
 
 ## Generating a Transcript
 
-There are two ways to generate a transcript: by yourself, or automatically.
+There are three ways to generate a transcript: generate it yourself using OpenAI Whisper, generate it automatically, or use an existing .srt file.
+
+### Use an Existing .srt File
+
+If you already have the transcript in .srt format, you can use it directly by putting the filename in the `transcript: <your .srt file>` attribute.
 
 ### Generating a Transcript Yourself
 
