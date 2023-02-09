@@ -8,6 +8,7 @@ import {
 	TFile,
 	Platform,
 	request,
+	WorkspaceLeaf,
 } from 'obsidian';
 
 // Local imports
@@ -17,7 +18,7 @@ import { ApiKeyInfo, EnqueueAudioModal } from './EnqueueAudioModal';
 import { generateRandomString, getIcon, secondsToTimeString, timeStringToSeconds } from './utils';
 import { AudioNotesSettings, AudioNotesSettingsTab, DEFAULT_SETTINGS } from './AudioNotesSettings';
 import { AudioElementCache, AudioNote, AudioNoteWithPositionInfo, getAudioPlayerIdentify } from './AudioNotes';
-import { Transcript, parseTranscript } from './Transcript';
+import { Transcript, parseTranscript, TranscriptSegment, getYouTubeTranscript } from './Transcript';
 
 // Load Font-Awesome stuff
 import { library } from "@fortawesome/fontawesome-svg-core";
@@ -26,6 +27,9 @@ import { fas } from "@fortawesome/free-solid-svg-icons";
 import { fab } from "@fortawesome/free-brands-svg-icons";
 // Load the actual library so the icons render.
 library.add(fas, far, fab, faCopy);
+
+// External packages
+import { XMLParser } from 'fast-xml-parser';
 
 
 export default class AutomaticAudioNotes extends Plugin {
@@ -177,6 +181,72 @@ export default class AutomaticAudioNotes extends Plugin {
 
 					// This command will only show up in Command Palette when the check function returns true
 					return true;
+				}
+			}
+		});
+
+		this.addCommand({
+			id: "create-audio-note-from-media-extended-plugin",
+			name: `(Media Extended) Create new Audio Note at current time (+/- ${this.getSettingsPlusMinusDuration()} seconds)`,
+			checkCallback: (checking: boolean) => {
+				// https://github.com/aidenlx/media-extended/blob/1e8f37756403423cd100e51f58d27ed961acf56b/src/mx-main.ts#L120
+				type MediaView = any;
+				const getMediaView = (group: string) =>
+					this.app.workspace
+						.getGroupLeaves(group)
+						.find((leaf) => (leaf.view as MediaView).getTimeStamp !== undefined)
+						?.view as MediaView | undefined;
+
+				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+				let group: WorkspaceLeaf | undefined = undefined;
+				if (markdownView) {
+					group = (markdownView.leaf as any).group;
+				}
+				if (checking) {
+					if (group) {
+						return true;
+					} else {
+						return false;
+					}
+				} else {
+					if (group) {
+						const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+						if (markdownView) {
+							const mediaView = getMediaView(group.toString());
+							const notTimestamp = mediaView.getTimeStamp();
+							let url: string = mediaView.info.src.href;
+							const urlParts = url.split("?");
+							const urlParams: Map<string, string> = new Map();
+							for (const param of urlParts[1].split("&")) {
+								const [key, value] = param.split("=");
+								urlParams.set(key, value);
+							}
+							url = `${urlParts[0]}?v=${urlParams.get("v")}`;
+							if (url.includes("youtube.com")) {
+								request({
+									url: `https://www.youtube.com/oembed?format=json&url=${url}`,
+									method: 'GET',
+									contentType: 'application/json',
+								}).then((result: string) => {
+									const videoInfo = JSON.parse(result);
+									const title = videoInfo.title;
+
+									const currentTime = parseFloat(notTimestamp.split("#t=")[1].slice(0, -1));
+									const audioNote = new AudioNote(
+										title, notTimestamp, url,
+										currentTime - this.getSettingsPlusMinusDuration(), currentTime + this.getSettingsPlusMinusDuration(), 1.0,
+										url,
+										undefined, undefined, undefined,
+										false
+									);
+									this.createNewAudioNoteAtEndOfFile(markdownView, audioNote).catch((error) => {
+										console.error(`Audio Notes: ${error}`);
+										new Notice("Coud not create audio note at end of file.", 10000);
+									});
+								});
+							}
+						}
+					}
 				}
 			}
 		});
@@ -448,12 +518,14 @@ export default class AutomaticAudioNotes extends Plugin {
 		}
 
 		// Create the audio div.
-		const audioDiv = this._createAudioDiv(audioNote);
-		if (audioDiv === undefined) {
-			return calloutDiv;
+		if (!audioNote.audioFilename.includes("youtube.com")) {
+			const audioDiv = this._createAudioDiv(audioNote);
+			if (audioDiv === undefined) {
+				return calloutDiv;
+			}
+			calloutDiv.appendChild(audioDiv);
+			this.renderMarkdown(calloutDiv, audioDiv, currentMdFilename, ctx, ``);
 		}
-		calloutDiv.appendChild(audioDiv);
-		this.renderMarkdown(calloutDiv, audioDiv, currentMdFilename, ctx, ``);
 
 		return calloutDiv;
 	}
@@ -1001,9 +1073,12 @@ export default class AutomaticAudioNotes extends Plugin {
 			}
 		}
 		newAudioNoteText += `\n`;
-		newAudioNoteText += `title: ${audioNote.title}\n`
-		newAudioNoteText += `transcript: ${audioNote.transcriptFilename}\n`
-		newAudioNoteText += `---\n`
+		newAudioNoteText += `title: ${audioNote.title}\n`;
+		newAudioNoteText += `transcript: ${audioNote.transcriptFilename}\n`;
+		if (audioNote.author) {
+			newAudioNoteText += `author: ${audioNote.author}\n`;
+		}
+		newAudioNoteText += `---\n`;
 		newAudioNoteText += `${newQuote}`;
 		return newAudioNoteText;
 	}
@@ -1085,6 +1160,16 @@ export default class AutomaticAudioNotes extends Plugin {
 			if (checkFiles && (transcriptFilename.endsWith(".json") || transcriptFilename.endsWith(".srt"))) {
 				const translationFilesContents = await this.loadFiles([transcriptFilename]);
 				transcript = translationFilesContents.get(transcriptFilename);
+			} else if (transcriptFilename.includes("youtube.com")) {
+
+				const urlParts = transcriptFilename.split("?");
+				const urlParams: Map<string, string> = new Map();
+				for (const param of urlParts[1].split("&")) {
+					const [key, value] = param.split("=");
+					urlParams.set(key, value);
+				}
+				const url = `${urlParts[0]}?v=${urlParams.get("v")}`;
+				return await getYouTubeTranscript(url);
 			}
 			if (transcript === undefined) {
 				transcript = await request({
