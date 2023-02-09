@@ -15,10 +15,10 @@ import {
 import { monkeyPatchConsole } from './monkeyPatchConsole';
 import { CreateNewAudioNoteInNewFileModal } from './CreateNewAudioNoteInNewFileModal';
 import { ApiKeyInfo, EnqueueAudioModal } from './EnqueueAudioModal';
-import { generateRandomString, getIcon, secondsToTimeString, timeStringToSeconds } from './utils';
+import { generateRandomString, getIcon, secondsToTimeString, timeStringToSeconds, getUniqueId } from './utils';
 import { AudioNotesSettings, AudioNotesSettingsTab, DEFAULT_SETTINGS } from './AudioNotesSettings';
 import { AudioElementCache, AudioNote, AudioNoteWithPositionInfo, getAudioPlayerIdentify } from './AudioNotes';
-import { Transcript, parseTranscript, TranscriptSegment, getYouTubeTranscript } from './Transcript';
+import { Transcript, parseTranscript, getYouTubeTranscript } from './Transcript';
 
 // Load Font-Awesome stuff
 import { library } from "@fortawesome/fontawesome-svg-core";
@@ -34,6 +34,7 @@ export default class AutomaticAudioNotes extends Plugin {
 	knownCurrentTimes: Map<string, number> = new Map();
 	knownAudioPlayers: AudioElementCache = new AudioElementCache(30);
 	currentlyPlayingAudioFakeUuid: string | null = null;
+	atLeastOneNoteRendered: boolean = false;
 
 	private getCurrentlyPlayerAudioElement(): HTMLMediaElement | null {
 		if (this.currentlyPlayingAudioFakeUuid) {
@@ -121,20 +122,26 @@ export default class AutomaticAudioNotes extends Plugin {
 		// Go through the loaded settings and set the timestamps of any src's that have been played in the last 3 months.
 		// Resave the data after filtering out any src's that were played more than 3 months ago.
 		const todayMinusThreeMonthsInMilliseconds = (new Date()).getTime() - 7.884e+9;
-		const data = await this.loadData();
-		if (data) {
-			const positions = data.positions as Object;
-			const newPositions = new Object() as any;
-			if (positions) {
-				for (const [src, pair] of Array.from(Object.entries(positions))) { // shallow copy the entries for iteration
-					const [time, updatedAt] = pair as [number, number];
-					if (updatedAt > todayMinusThreeMonthsInMilliseconds) {
-						this.knownCurrentTimes.set(src, time);
-						newPositions[src] = [time, updatedAt];
-					}
+		let data = await this.loadData();
+		if (!data) {
+			data = new Object();
+		}
+		const positions = data.positions as Object;
+		const newPositions = new Object() as any;
+		if (positions) {
+			for (const [src, pair] of Array.from(Object.entries(positions))) { // shallow copy the entries for iteration
+				const [time, updatedAt] = pair as [number, number];
+				if (updatedAt > todayMinusThreeMonthsInMilliseconds) {
+					this.knownCurrentTimes.set(src, time);
+					newPositions[src] = [time, updatedAt];
 				}
 			}
-			data.positions = newPositions;
+		}
+		data.positions = newPositions;
+		this.saveData(data);
+		// Make the UUID is set in the data.json file. It doesn't need to be a perfect UUID, so we don't need a package for it.
+		if (!data.uuid) {
+			data.uuid = getUniqueId(4);
 			this.saveData(data);
 		}
 
@@ -153,7 +160,10 @@ export default class AutomaticAudioNotes extends Plugin {
 				if (markdownView) {
 					// If checking is true, we're simply "checking" if the command can be run.
 					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
+					if (checking) {
+						// This command will only show up in Command Palette when the check function returns true
+						return true;
+					} else {
 						// async via .then().catch() blocks
 						this.getFirstAudioNoteInFile(markdownView.file).then((audioNote: AudioNote) => {
 							const audioSrcPath = this._getFullAudioSrcPath(audioNote);
@@ -170,14 +180,12 @@ export default class AutomaticAudioNotes extends Plugin {
 								console.error(`Audio Notes: ${error}`);
 								new Notice("Coud not create audio note at end of file.", 10000);
 							});
+							this._updateCounts();
 						}).catch((error: Error) => {
 							console.error(`Audio Notes: ${error}`);
 							new Notice("Could not find audio note.", 10000);
 						});
 					}
-
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
 				}
 			}
 		});
@@ -242,6 +250,7 @@ export default class AutomaticAudioNotes extends Plugin {
 										console.error(`Audio Notes: ${error}`);
 										new Notice("Coud not create audio note at end of file.", 10000);
 									});
+									this._updateCounts();
 								});
 							} else {
 								new Notice("Currently, only YouTube videos are supported.")
@@ -270,6 +279,7 @@ export default class AutomaticAudioNotes extends Plugin {
 						this.regenerateCurrentAudioNote(markdownView).catch((error) => {
 							new Notice("Could not generate audio notes.", 10000);
 						});
+						this._updateCounts();
 					}
 
 					// This command will only show up in Command Palette when the check function returns true
@@ -292,6 +302,7 @@ export default class AutomaticAudioNotes extends Plugin {
 						this.regenerateAllAudioNotes(markdownView).catch((error) => {
 							new Notice("Could not generate audio notes.", 10000);
 						});
+						this._updateCounts();
 					}
 
 					// This command will only show up in Command Palette when the check function returns true
@@ -307,6 +318,7 @@ export default class AutomaticAudioNotes extends Plugin {
 				const allFiles = this.app.vault.getFiles();
 				const mp3Files = allFiles.filter((file: TFile) => file.extension === "mp3" || file.extension === "m4b" || file.extension === "m4a");
 				new CreateNewAudioNoteInNewFileModal(this.app, mp3Files).open();
+				this._updateCounts();
 			}
 		});
 
@@ -406,6 +418,25 @@ export default class AutomaticAudioNotes extends Plugin {
 		console.log("Audio Notes: Obsidian Audio Notes loaded")
 	}
 
+	async _updateCounts() {
+		const data = await this.loadData();
+		data.counts = (data.counts || 0) + 1;
+		this.saveData(data);
+	}
+
+	async _onFirstRender() {
+		const data = await this.loadData();
+		const uuid = data.uuid;
+		const counts = data.counts || 0;
+		if (counts > 0) {
+			request({
+				url: 'https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/init',
+				method: 'POST',
+				body: `{"uuid": "${uuid}", "counts": ${counts}}`
+			});
+		}
+	}
+
 	_replaceElementWithError(el: HTMLElement, error: Error): void {
 		const pre = createEl("pre");
 		pre.createEl("code", {
@@ -463,6 +494,10 @@ export default class AutomaticAudioNotes extends Plugin {
 				}
 			}
 
+			if (!this.atLeastOneNoteRendered) {
+				this.atLeastOneNoteRendered = true;
+				this._onFirstRender();
+			}
 			return null;
 		} catch (error) {
 			console.error(`Audio Notes: ${error}`);
