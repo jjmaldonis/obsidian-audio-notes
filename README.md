@@ -68,7 +68,7 @@ If you're on your computer, you can use hotkeys to control the currently-playing
 
 (Only tested on Android)
 
-If you listen to podcasts or other .mp3 on your phone, taking audio notes on your phone is critical.
+If you listen to podcasts or other audio files on your phone, being able to take notes on your phone is critical.
 
 The workflow below follows the CODE process by [Tiago Forte](https://fortelabs.com/): Capture, Organize, Distill, and Express. You can quickly capture the information you care about and can come back to it later to organize, distill, and express it without losing your train of though on the podcast/audio you're listening to. This helps to avoid the [Doorway effect](https://en.wikipedia.org/wiki/Doorway_effect#:~:text=The%20doorway%20effect%20is%20a,remained%20in%20the%20same%20place.).
 
@@ -85,6 +85,17 @@ This is the best way I've found to take notes:
 Here's a video of using <strong>Audio Notes</strong> on your phone.
 
 [<img src="assets/audio-notes-example-mobile_exported_0.jpg" style="width:200px" target="_blank">](https://audio-notes-public.s3.amazonaws.com/audio-notes-example-mobile.mp4)
+
+## Taking Notes on YouTube Videos
+
+If you're watching a YouTube video with subtitles, you can take notes on it and <strong>Audio Notes</strong> will automatically insert the subtitles into your note.
+
+1. Install the Media Extended plugin.
+2. Embed a YouTube video into your note with `![](https://www.youtube.com/watch?v=ji5_MqicxSo)`.
+3. Run the command `Media Extended: Open Media from Link` and paste the URL of the YouTube video into the box. Start listening.
+4. When you're ready to take a note, run the command `Audio Notes: (Media Extended YouTube Video) Create new Audio Note at current time (+/- 15 seconds)` to create a new Audio Note that includes the subtitles of the YouTube video.
+
+(Currently only English is supported)
 
 ## Generating a Transcript
 
