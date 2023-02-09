@@ -28,9 +28,6 @@ import { fab } from "@fortawesome/free-brands-svg-icons";
 // Load the actual library so the icons render.
 library.add(fas, far, fab, faCopy);
 
-// External packages
-import { XMLParser } from 'fast-xml-parser';
-
 
 export default class AutomaticAudioNotes extends Plugin {
 	settings: AudioNotesSettings;
@@ -187,7 +184,7 @@ export default class AutomaticAudioNotes extends Plugin {
 
 		this.addCommand({
 			id: "create-audio-note-from-media-extended-plugin",
-			name: `(Media Extended) Create new Audio Note at current time (+/- ${this.getSettingsPlusMinusDuration()} seconds)`,
+			name: `(Media Extended YouTube Video) Create new Audio Note at current time (+/- ${this.getSettingsPlusMinusDuration()} seconds)`,
 			checkCallback: (checking: boolean) => {
 				// https://github.com/aidenlx/media-extended/blob/1e8f37756403423cd100e51f58d27ed961acf56b/src/mx-main.ts#L120
 				type MediaView = any;
@@ -213,24 +210,26 @@ export default class AutomaticAudioNotes extends Plugin {
 						const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
 						if (markdownView) {
 							const mediaView = getMediaView(group.toString());
-							const notTimestamp = mediaView.getTimeStamp();
+							const notTimestamp = mediaView.getTimeStamp(); // this is NOT just a timestamp...
 							let url: string = mediaView.info.src.href;
-							const urlParts = url.split("?");
-							const urlParams: Map<string, string> = new Map();
-							for (const param of urlParts[1].split("&")) {
-								const [key, value] = param.split("=");
-								urlParams.set(key, value);
-							}
-							url = `${urlParts[0]}?v=${urlParams.get("v")}`;
 							if (url.includes("youtube.com")) {
+								// Remove all query params from the YouTube URL except v={id}
+								const urlParts = url.split("?");
+								const urlParams: Map<string, string> = new Map();
+								for (const param of urlParts[1].split("&")) {
+									const [key, value] = param.split("=");
+									urlParams.set(key, value);
+								}
+								url = `${urlParts[0]}?v=${urlParams.get("v")}`;
+								// Make a request to get the title of the YouTube video.
 								request({
 									url: `https://www.youtube.com/oembed?format=json&url=${url}`,
 									method: 'GET',
 									contentType: 'application/json',
 								}).then((result: string) => {
+									// Finally, create the Audio Note at the end of the file.
 									const videoInfo = JSON.parse(result);
 									const title = videoInfo.title;
-
 									const currentTime = parseFloat(notTimestamp.split("#t=")[1].slice(0, -1));
 									const audioNote = new AudioNote(
 										title, notTimestamp, url,
@@ -244,8 +243,14 @@ export default class AutomaticAudioNotes extends Plugin {
 										new Notice("Coud not create audio note at end of file.", 10000);
 									});
 								});
+							} else {
+								new Notice("Currently, only YouTube videos are supported.")
 							}
+						} else {
+							new Notice("Please focus your cursor on a markdown window.");
 						}
+					} else {
+						new Notice("Use the command `Media Extended: Open Media from Link` to open a YouTube video.");
 					}
 				}
 			}
@@ -1161,7 +1166,6 @@ export default class AutomaticAudioNotes extends Plugin {
 				const translationFilesContents = await this.loadFiles([transcriptFilename]);
 				transcript = translationFilesContents.get(transcriptFilename);
 			} else if (transcriptFilename.includes("youtube.com")) {
-
 				const urlParts = transcriptFilename.split("?");
 				const urlParams: Map<string, string> = new Map();
 				for (const param of urlParts[1].split("&")) {
