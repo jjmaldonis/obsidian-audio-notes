@@ -7,17 +7,18 @@ import {
 	Notice,
 	TFile,
 	Platform,
-	Editor,
 	request,
+	WorkspaceLeaf,
 } from 'obsidian';
 
 // Local imports
 import { monkeyPatchConsole } from './monkeyPatchConsole';
 import { CreateNewAudioNoteInNewFileModal } from './CreateNewAudioNoteInNewFileModal';
 import { ApiKeyInfo, EnqueueAudioModal } from './EnqueueAudioModal';
-import { generateRandomString, getIcon, secondsToTimeString, timeStringToSeconds } from './utils';
+import { generateRandomString, getIcon, secondsToTimeString, timeStringToSeconds, getUniqueId } from './utils';
 import { AudioNotesSettings, AudioNotesSettingsTab, DEFAULT_SETTINGS } from './AudioNotesSettings';
 import { AudioElementCache, AudioNote, AudioNoteWithPositionInfo, getAudioPlayerIdentify } from './AudioNotes';
+import { Transcript, parseTranscript, getYouTubeTranscript } from './Transcript';
 
 // Load Font-Awesome stuff
 import { library } from "@fortawesome/fontawesome-svg-core";
@@ -33,6 +34,7 @@ export default class AutomaticAudioNotes extends Plugin {
 	knownCurrentTimes: Map<string, number> = new Map();
 	knownAudioPlayers: AudioElementCache = new AudioElementCache(30);
 	currentlyPlayingAudioFakeUuid: string | null = null;
+	atLeastOneNoteRendered: boolean = false;
 
 	private getCurrentlyPlayerAudioElement(): HTMLMediaElement | null {
 		if (this.currentlyPlayingAudioFakeUuid) {
@@ -87,10 +89,6 @@ export default class AutomaticAudioNotes extends Plugin {
 		return parseFloat(this.settings.forwardStep);
 	}
 
-	getSettingsOpenAiApiKey(): string {
-		return this.settings.openAiApiKey;
-	}
-
 	getSettingsAudioNotesApiKey(): string {
 		return this.settings.audioNotesApiKey;
 	}
@@ -124,20 +122,26 @@ export default class AutomaticAudioNotes extends Plugin {
 		// Go through the loaded settings and set the timestamps of any src's that have been played in the last 3 months.
 		// Resave the data after filtering out any src's that were played more than 3 months ago.
 		const todayMinusThreeMonthsInMilliseconds = (new Date()).getTime() - 7.884e+9;
-		const data = await this.loadData();
-		if (data) {
-			const positions = data.positions as Object;
-			const newPositions = new Object() as any;
-			if (positions) {
-				for (const [src, pair] of Array.from(Object.entries(positions))) { // shallow copy the entries for iteration
-					const [time, updatedAt] = pair as [number, number];
-					if (updatedAt > todayMinusThreeMonthsInMilliseconds) {
-						this.knownCurrentTimes.set(src, time);
-						newPositions[src] = [time, updatedAt];
-					}
+		let data = await this.loadData();
+		if (!data) {
+			data = new Object();
+		}
+		const positions = data.positions as Object;
+		const newPositions = new Object() as any;
+		if (positions) {
+			for (const [src, pair] of Array.from(Object.entries(positions))) { // shallow copy the entries for iteration
+				const [time, updatedAt] = pair as [number, number];
+				if (updatedAt > todayMinusThreeMonthsInMilliseconds) {
+					this.knownCurrentTimes.set(src, time);
+					newPositions[src] = [time, updatedAt];
 				}
 			}
-			data.positions = newPositions;
+		}
+		data.positions = newPositions;
+		this.saveData(data);
+		// Make the UUID is set in the data.json file. It doesn't need to be a perfect UUID, so we don't need a package for it.
+		if (!data.uuid) {
+			data.uuid = getUniqueId(4);
 			this.saveData(data);
 		}
 
@@ -156,7 +160,10 @@ export default class AutomaticAudioNotes extends Plugin {
 				if (markdownView) {
 					// If checking is true, we're simply "checking" if the command can be run.
 					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
+					if (checking) {
+						// This command will only show up in Command Palette when the check function returns true
+						return true;
+					} else {
 						// async via .then().catch() blocks
 						this.getFirstAudioNoteInFile(markdownView.file).then((audioNote: AudioNote) => {
 							const audioSrcPath = this._getFullAudioSrcPath(audioNote);
@@ -173,14 +180,87 @@ export default class AutomaticAudioNotes extends Plugin {
 								console.error(`Audio Notes: ${error}`);
 								new Notice("Coud not create audio note at end of file.", 10000);
 							});
+							this._updateCounts();
 						}).catch((error: Error) => {
 							console.error(`Audio Notes: ${error}`);
 							new Notice("Could not find audio note.", 10000);
 						});
 					}
+				}
+			}
+		});
 
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
+		this.addCommand({
+			id: "create-audio-note-from-media-extended-plugin",
+			name: `(Media Extended YouTube Video) Create new Audio Note at current time (+/- ${this.getSettingsPlusMinusDuration()} seconds)`,
+			checkCallback: (checking: boolean) => {
+				// https://github.com/aidenlx/media-extended/blob/1e8f37756403423cd100e51f58d27ed961acf56b/src/mx-main.ts#L120
+				type MediaView = any;
+				const getMediaView = (group: string) =>
+					this.app.workspace
+						.getGroupLeaves(group)
+						.find((leaf) => (leaf.view as MediaView).getTimeStamp !== undefined)
+						?.view as MediaView | undefined;
+
+				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+				let group: WorkspaceLeaf | undefined = undefined;
+				if (markdownView) {
+					group = (markdownView.leaf as any).group;
+				}
+				if (checking) {
+					if (group) {
+						return true;
+					} else {
+						return false;
+					}
+				} else {
+					if (group) {
+						const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+						if (markdownView) {
+							const mediaView = getMediaView(group.toString());
+							const notTimestamp = mediaView.getTimeStamp(); // this is NOT just a timestamp...
+							let url: string = mediaView.info.src.href;
+							if (url.includes("youtube.com")) {
+								// Remove all query params from the YouTube URL except v={id}
+								const urlParts = url.split("?");
+								const urlParams: Map<string, string> = new Map();
+								for (const param of urlParts[1].split("&")) {
+									const [key, value] = param.split("=");
+									urlParams.set(key, value);
+								}
+								url = `${urlParts[0]}?v=${urlParams.get("v")}`;
+								// Make a request to get the title of the YouTube video.
+								request({
+									url: `https://www.youtube.com/oembed?format=json&url=${url}`,
+									method: 'GET',
+									contentType: 'application/json',
+								}).then((result: string) => {
+									// Finally, create the Audio Note at the end of the file.
+									const videoInfo = JSON.parse(result);
+									const title = videoInfo.title;
+									const currentTime = parseFloat(notTimestamp.split("#t=")[1].slice(0, -1));
+									const audioNote = new AudioNote(
+										title, notTimestamp, url,
+										currentTime - this.getSettingsPlusMinusDuration(), currentTime + this.getSettingsPlusMinusDuration(), 1.0,
+										url,
+										undefined, undefined, undefined,
+										false
+									);
+									this.createNewAudioNoteAtEndOfFile(markdownView, audioNote).catch((error) => {
+										console.error(`Audio Notes: ${error}`);
+										new Notice("Coud not create audio note at end of file.", 10000);
+									});
+									this._updateCounts();
+								});
+							} else {
+								new Notice("Currently, only YouTube videos are supported.")
+							}
+						} else {
+							new Notice("Please focus your cursor on a markdown window.");
+						}
+					} else {
+						new Notice("Use the command `Media Extended: Open Media from Link` to open a YouTube video.");
+					}
 				}
 			}
 		});
@@ -199,6 +279,7 @@ export default class AutomaticAudioNotes extends Plugin {
 						this.regenerateCurrentAudioNote(markdownView).catch((error) => {
 							new Notice("Could not generate audio notes.", 10000);
 						});
+						this._updateCounts();
 					}
 
 					// This command will only show up in Command Palette when the check function returns true
@@ -221,6 +302,7 @@ export default class AutomaticAudioNotes extends Plugin {
 						this.regenerateAllAudioNotes(markdownView).catch((error) => {
 							new Notice("Could not generate audio notes.", 10000);
 						});
+						this._updateCounts();
 					}
 
 					// This command will only show up in Command Palette when the check function returns true
@@ -236,20 +318,7 @@ export default class AutomaticAudioNotes extends Plugin {
 				const allFiles = this.app.vault.getFiles();
 				const mp3Files = allFiles.filter((file: TFile) => file.extension === "mp3" || file.extension === "m4b" || file.extension === "m4a");
 				new CreateNewAudioNoteInNewFileModal(this.app, mp3Files).open();
-			}
-		});
-
-		this.addCommand({
-			id: 'summarize-using-openai',
-			name: 'Summarize Selection using OpenAI',
-			editorCallback: async (editor: Editor, view: MarkdownView) => {
-				const selectedText = editor.getSelection();
-				const summaryPrompt = `Summarize this text into one paragraph.\n\nText:\n${selectedText}\n\nSummary:\n`
-				// const summaryPrompt = `Summarize this text into one paragraph, emphasizing accuracy.\n\nText:\n${selectedText}\n\nSummary:\n`
-				const summary = await this.summarizeTextUsingOpenAI(summaryPrompt);
-				if (summary) {
-					editor.replaceSelection(`${selectedText}\n> Summary: ${summary}`);
-				}
+				this._updateCounts();
 			}
 		});
 
@@ -349,6 +418,25 @@ export default class AutomaticAudioNotes extends Plugin {
 		console.log("Audio Notes: Obsidian Audio Notes loaded")
 	}
 
+	async _updateCounts() {
+		const data = await this.loadData();
+		data.counts = (data.counts || 0) + 1;
+		this.saveData(data);
+	}
+
+	async _onFirstRender() {
+		const data = await this.loadData();
+		const uuid = data.uuid;
+		const counts = data.counts || 0;
+		if (counts > 0) {
+			request({
+				url: 'https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/init',
+				method: 'POST',
+				body: `{"uuid": "${uuid}", "counts": ${counts}}`
+			});
+		}
+	}
+
 	_replaceElementWithError(el: HTMLElement, error: Error): void {
 		const pre = createEl("pre");
 		pre.createEl("code", {
@@ -406,6 +494,10 @@ export default class AutomaticAudioNotes extends Plugin {
 				}
 			}
 
+			if (!this.atLeastOneNoteRendered) {
+				this.atLeastOneNoteRendered = true;
+				this._onFirstRender();
+			}
 			return null;
 		} catch (error) {
 			console.error(`Audio Notes: ${error}`);
@@ -466,12 +558,14 @@ export default class AutomaticAudioNotes extends Plugin {
 		}
 
 		// Create the audio div.
-		const audioDiv = this._createAudioDiv(audioNote);
-		if (audioDiv === undefined) {
-			return calloutDiv;
+		if (!audioNote.audioFilename.includes("youtube.com")) {
+			const audioDiv = this._createAudioDiv(audioNote);
+			if (audioDiv === undefined) {
+				return calloutDiv;
+			}
+			calloutDiv.appendChild(audioDiv);
+			this.renderMarkdown(calloutDiv, audioDiv, currentMdFilename, ctx, ``);
 		}
-		calloutDiv.appendChild(audioDiv);
-		this.renderMarkdown(calloutDiv, audioDiv, currentMdFilename, ctx, ``);
 
 		return calloutDiv;
 	}
@@ -975,7 +1069,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		return audioNote;
 	}
 
-	createAudioNoteSrc(audioNote: AudioNote, transcript: string | undefined, view: MarkdownView): string | undefined {
+	createAudioNoteSrc(audioNote: AudioNote, transcript: Transcript | undefined, view: MarkdownView): string | undefined {
 		if (audioNote.quote && audioNote.quote.includes("`")) {
 			new Notice("Before the generation can be run, you must remove any audio notes that have the character ` in their quote.", 10000);
 			return undefined;
@@ -1019,16 +1113,18 @@ export default class AutomaticAudioNotes extends Plugin {
 			}
 		}
 		newAudioNoteText += `\n`;
-		newAudioNoteText += `title: ${audioNote.title}\n`
-		newAudioNoteText += `transcript: ${audioNote.transcriptFilename}\n`
-		newAudioNoteText += `---\n`
+		newAudioNoteText += `title: ${audioNote.title}\n`;
+		newAudioNoteText += `transcript: ${audioNote.transcriptFilename}\n`;
+		if (audioNote.author) {
+			newAudioNoteText += `author: ${audioNote.author}\n`;
+		}
+		newAudioNoteText += `---\n`;
 		newAudioNoteText += `${newQuote}`;
 		return newAudioNoteText;
 	}
 
-	private _getQuoteFromTranscript(quoteStart: number, quoteEnd: number, transcriptContents: string): [number, number, string] {
+	private _getQuoteFromTranscript(quoteStart: number, quoteEnd: number, transcript: Transcript): [number, number, string] {
 		// Get the relevant part of the transcript.
-		const transcript = JSON.parse(transcriptContents); // For now, use the file format defined by OpenAI Whisper
 		const segments = transcript.segments;
 		const result = [];
 		let start = undefined;
@@ -1067,6 +1163,11 @@ export default class AutomaticAudioNotes extends Plugin {
 				}
 			}
 		}
+		if (start === undefined || end === undefined) {
+			new Notice("Transcript file does not have start or end times for at least one text entry.");
+			console.error(segments);
+			throw new Error("Transcript file does not have start or end times for at least one text entry.");
+		}
 		return [start, end, quoteText];
 	}
 
@@ -1093,12 +1194,21 @@ export default class AutomaticAudioNotes extends Plugin {
 		}
 	}
 
-	async getTranscript(transcriptFilename: string | undefined, checkFiles: boolean = true): Promise<string | undefined> {
+	async getTranscript(transcriptFilename: string | undefined, checkFiles: boolean = true): Promise<Transcript | undefined> {
 		let transcript: string | undefined = undefined;
 		if (transcriptFilename !== undefined) {
-			if (checkFiles && transcriptFilename.endsWith(".json")) {
+			if (checkFiles && (transcriptFilename.endsWith(".json") || transcriptFilename.endsWith(".srt"))) {
 				const translationFilesContents = await this.loadFiles([transcriptFilename]);
 				transcript = translationFilesContents.get(transcriptFilename);
+			} else if (transcriptFilename.includes("youtube.com")) {
+				const urlParts = transcriptFilename.split("?");
+				const urlParams: Map<string, string> = new Map();
+				for (const param of urlParts[1].split("&")) {
+					const [key, value] = param.split("=");
+					urlParams.set(key, value);
+				}
+				const url = `${urlParts[0]}?v=${urlParams.get("v")}`;
+				return await getYouTubeTranscript(url);
 			}
 			if (transcript === undefined) {
 				transcript = await request({
@@ -1112,11 +1222,11 @@ export default class AutomaticAudioNotes extends Plugin {
 				});
 			}
 		}
-		return transcript;
+		return transcript ? parseTranscript(transcript) : undefined;
 	}
 
 	async createNewAudioNoteAtEndOfFile(view: MarkdownView, audioNote: AudioNote): Promise<void> {
-		let transcript: string | undefined = await this.getTranscript(audioNote.transcriptFilename);
+		let transcript: Transcript | undefined = await this.getTranscript(audioNote.transcriptFilename);
 
 		const newAudioNoteSrc = this.createAudioNoteSrc(audioNote, transcript, view);
 		if (newAudioNoteSrc) {
@@ -1158,7 +1268,11 @@ export default class AutomaticAudioNotes extends Plugin {
 				translationFilenames.push(audioNote.transcriptFilename);
 			}
 		}
-		const translationFilesContents = await this.loadFiles(translationFilenames);
+		const transcriptContents = await this.loadFiles(translationFilenames);
+		const transcripts: Map<string, Transcript> = new Map();
+		for (const [filename, contents] of transcriptContents.entries()) {
+			transcripts.set(filename, parseTranscript(contents));
+		}
 
 		// Must go from bottom to top so the editor position doesn't change!
 		audioNotes.reverse()
@@ -1168,7 +1282,7 @@ export default class AutomaticAudioNotes extends Plugin {
 					new Notice("No transcript file defined for audio note.", 10000);
 					continue;
 				}
-				let transcript = translationFilesContents.get(audioNote.transcriptFilename);
+				let transcript = transcripts.get(audioNote.transcriptFilename);
 				if (transcript === undefined) {
 					transcript = await this.getTranscript(audioNote.transcriptFilename, false);
 				}
@@ -1247,7 +1361,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		if (!audioNote.transcriptFilename) {
 			return;
 		}
-		let transcript: string | undefined = await this.getTranscript(audioNote.transcriptFilename);
+		let transcript: Transcript | undefined = await this.getTranscript(audioNote.transcriptFilename);
 
 		const newAudioNoteSrc = this.createAudioNoteSrc(audioNote, transcript, view);
 		if (newAudioNoteSrc) {
@@ -1261,58 +1375,6 @@ export default class AutomaticAudioNotes extends Plugin {
 
 		// Tell the user the generation is complete.
 		new Notice('Audio Note generation complete!');
-	}
-
-	async summarizeTextUsingOpenAI(toSummarize: string): Promise<string | undefined> {
-		// Some basic info about summarization, with an example API call, can be found here: https://beta.openai.com/examples/default-tldr-summary
-
-		// For English text, 1 token is approximately 4 characters or 0.75 words.
-		const fractionOfPrompt: number = 0.5;
-		const minCharacters = 75;
-		const maxCharacters = 500;
-		let tokens = Math.ceil(toSummarize.length * fractionOfPrompt);
-		if (tokens < minCharacters) {
-			tokens = minCharacters;
-		} else if (tokens > maxCharacters) {
-			tokens = maxCharacters;
-		}
-		// Convert from characters to tokens.
-		tokens = Math.floor(tokens / 4);
-
-		// https://beta.openai.com/docs/models/gpt-3
-		const model = "text-davinci-003" // the best
-		// const model = "text-curie-001" // also good at summarization
-
-		try {
-			// console.info(`Summarizing text:\n${toSummarize}\nwith max length of ${tokens * 4} characters, or ${tokens} tokens, or ~ ${tokens * 0.75} words.`)
-			new Notice("Summarizing text using OpenAI ...", 3000);
-			const response = await request({
-				url: 'https://api.openai.com/v1/completions',
-				method: 'POST',
-				headers: {
-					'Authorization': `Bearer ${this.getSettingsOpenAiApiKey()}`,
-					'Content-Type': 'application/json'
-				},
-				contentType: 'application/json',
-				body: JSON.stringify({
-					"model": model,
-					"prompt": toSummarize,
-					"max_tokens": tokens,
-					"temperature": 0.3,
-					"best_of": 3,
-					"n": 1,
-				})
-			});
-
-			const json = JSON.parse(response);
-			const result: string = json.choices[0].text;
-			// console.info(`Result is:\n${result}\nwith ${result.length} characters and ${result.split(/\s/).length} words.`)
-			return result;
-		} catch (error) {
-			console.error(error);
-			new Notice(`Could not summarize text: ${error}`, 3000);
-			return undefined;
-		}
 	}
 
 	onunload() {

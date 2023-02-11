@@ -1,4 +1,4 @@
-![version](https://img.shields.io/badge/version-0.2.3-blue)
+![version](https://img.shields.io/badge/version-0.3.1-blue)
 ![license](https://img.shields.io/badge/license-MIT-brightgreen)
 <a href='https://ko-fi.com/jjmaldonis' target='_blank'><img height='20' style='border:0px;height:26px;margin-bottom:-2.5px;' src='https://az743702.vo.msecnd.net/cdn/kofi3.png?v=0' border='0' alt='Buy Me a Coffee :)' /></a>
 
@@ -33,7 +33,7 @@ To create one, you must specify an audio file and can set a few other attributes
 
 ## How to Use the Plugin
 
-Find the .mp3 file you want to take notes on and move it into your vault. You may want to generate a transcript file to allow <strong>Audio Notes</strong> to automatically insert the transcript of the audio (see below).
+Find the .mp3 (or .m4a or .m4b) file you want to take notes on and move it into your vault. You may want to generate a transcript file to allow <strong>Audio Notes</strong> to automatically insert the transcript of the audio (see below).
 
 Once your .mp3 file is in your vault, run the command `Create new Audio Note in new file`. After you select your mp3 file, create a new note is created with an Audio Note that looks like this:
 
@@ -63,17 +63,12 @@ If you're on your computer, you can use hotkeys to control the currently-playing
 - `Ctrl + Shift + Space`: Toggle play/pause
 - `Ctrl + Shift + N`: Create new audio note at current time
 - `Ctrl + Shift + G`: Regenerate current audio note
-- `Ctrl + Shift + S`: Summarize selection using OpenAI
-
-#### Summarize Text
-
-As an addon, a command to summarize text is included in the plugin. You can select a body of text and run the command `Summarize selection using OpenAI` to summarize the text you have selected. Your OpenAI API key must be set in the settings.
 
 ## Using on Mobile
 
 (Only tested on Android)
 
-If you listen to podcasts or other .mp3 on your phone, taking audio notes on your phone is critical.
+If you listen to podcasts or other audio files on your phone, being able to take notes on your phone is critical.
 
 The workflow below follows the CODE process by [Tiago Forte](https://fortelabs.com/): Capture, Organize, Distill, and Express. You can quickly capture the information you care about and can come back to it later to organize, distill, and express it without losing your train of though on the podcast/audio you're listening to. This helps to avoid the [Doorway effect](https://en.wikipedia.org/wiki/Doorway_effect#:~:text=The%20doorway%20effect%20is%20a,remained%20in%20the%20same%20place.).
 
@@ -91,9 +86,24 @@ Here's a video of using <strong>Audio Notes</strong> on your phone.
 
 [<img src="assets/audio-notes-example-mobile_exported_0.jpg" style="width:200px" target="_blank">](https://audio-notes-public.s3.amazonaws.com/audio-notes-example-mobile.mp4)
 
+## Taking Notes on YouTube Videos
+
+If you're watching a YouTube video with subtitles, you can take notes on it and <strong>Audio Notes</strong> will automatically insert the subtitles into your note.
+
+1. Install the Media Extended plugin.
+2. Embed a YouTube video into your note with `![](https://www.youtube.com/watch?v=ji5_MqicxSo)`.
+3. Run the command `Media Extended: Open Media from Link` and paste the URL of the YouTube video into the box. Start listening.
+4. When you're ready to take a note, run the command `Audio Notes: (Media Extended YouTube Video) Create new Audio Note at current time (+/- 15 seconds)` to create a new Audio Note that includes the subtitles of the YouTube video.
+
+(Currently only English is supported)
+
 ## Generating a Transcript
 
-There are two ways to generate a transcript: by yourself, or automatically.
+There are three ways to generate a transcript: generate it yourself using OpenAI Whisper, generate it automatically, or use an existing .srt file.
+
+### Use an Existing .srt File
+
+If you already have the transcript in .srt format, you can use it directly by putting the filename in the `transcript: <your .srt file>` attribute.
 
 ### Generating a Transcript Yourself
 
@@ -170,7 +180,7 @@ I'm running a Beta program for new users right now. It has limited access, and t
 
 To use this workflow, you submit a URL to an .mp3 file. The .mp3 file will be processed in the cloud to generate a transcript. After that, the transcript will be used automatically by <strong>Audio Notes</strong> to generate quotes whenever you take a note.
 
-Due to the costs of processing the transcript, I have no choice but to charge for it. I would love to provide it for free, but the costs are non-trivial. As an example, [replicate.com](https://www.replicate.com) charges over $8.00 _per hour!_ of audio for transcribing audio to text with high accuracy. If a podcast is an hour long, that would be $8.00 just to get a highly accurate transcript. I am doing my best to keep costs low, which is why I am running a Beta program.
+Due to the costs of processing the transcript, I have no choice but to charge for it. I would love to provide it for free, but the costs are non-trivial. As an example, [replicate.com](https://www.replicate.com) charges over $8.00 _per hour!_ for transcribing audio to text with high accuracy. If a podcast is an hour long, that would be $8.00 just to get a highly accurate transcript. I am doing my best to keep costs low, which is why I am running a Beta program.
 
 The pricing below is honestly a fantastic deal.
 
@@ -199,7 +209,7 @@ Here's a video of how it all works:
 
 #### Pricing
 
-I would love to be able to provide this online transcription service for free. Unfortunately, the costs are prohibitive. For example, [replicate.com](https://www.replicate.com) charges over $8.00 _per hour!_ of audio for transcribing audio to text with high accuracy. If a podcast is an hour long, that would be $8.00 just to get a highly accurate transcript. I am doing my best to keep costs low, which is why I am running a Beta program.
+I would love to be able to provide this online transcription service for free. Unfortunately, the costs are prohibitive. For example, [replicate.com](https://www.replicate.com) charges over $8.00 _per hour!_ for transcribing audio to text with high accuracy. If a podcast is an hour long, that would be $8.00 just to get a highly accurate transcript. I am doing my best to keep costs low, which is why I am running a Beta program.
 
 Costs scale with accuracy, so the price tiers increase based on the accuracy level you want.
 
@@ -222,5 +232,3 @@ After I have replied to you, you'll be able to subscribe on [Ko-Fi](https://ko-f
 I will then send you an API key to use, and you'll be able to start generating transcripts!
 
 If you are overloading the service, I may ask you to slow down your requests so other people can use the service and get their transcripts quickly.
-
-Currently, only English is supported. If you would like to have transcriptions in a different language, please email me.

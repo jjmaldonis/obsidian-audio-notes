@@ -16,7 +16,7 @@ export class AudioNotesSettingsTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName("+/- duration (seconds) when generating new nodes")
+			.setName("+/- duration (seconds) when generating new notes")
 			.setDesc("The amount of time add to and subtract from the current time when creating new audio notes")
 			.addText((text) =>
 				text
@@ -68,18 +68,6 @@ export class AudioNotesSettingsTab extends PluginSettingTab {
 						}
 					})
 			);
-
-		new Setting(containerEl)
-			.setName('OpenAI API Key')
-			.setDesc('Used for summarization of text. To create an API key, go to: https://beta.openai.com/account/api-keys')
-			.addText((text) =>
-				text
-					.setPlaceholder('<your OpenAI api key>')
-					.setValue(this.plugin.settings.openAiApiKey)
-					.onChange(async (value) => {
-						this.plugin.settings.openAiApiKey = value;
-						await this.plugin.saveSettings();
-					}));
 
 		new Setting(containerEl)
 			.setName('Audio Notes API Key')
@@ -152,7 +140,6 @@ export interface AudioNotesSettings {
 	plusMinusDuration: string;
 	backwardStep: string;
 	forwardStep: string;
-	openAiApiKey: string;
 	audioNotesApiKey: string;
 	debugMode: boolean;
 }
@@ -161,7 +148,6 @@ export const DEFAULT_SETTINGS: Partial<AudioNotesSettings> = {
 	plusMinusDuration: "30",
 	backwardStep: "5",
 	forwardStep: "15",
-	openAiApiKey: "",
 	audioNotesApiKey: "",
 	debugMode: false,
 };
