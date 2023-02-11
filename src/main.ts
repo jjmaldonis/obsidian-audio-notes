@@ -317,7 +317,7 @@ export default class AutomaticAudioNotes extends Plugin {
 			callback: async () => {
 				const allFiles = this.app.vault.getFiles();
 				const mp3Files = allFiles.filter((file: TFile) => file.extension === "mp3" || file.extension === "m4b" || file.extension === "m4a");
-				new CreateNewAudioNoteInNewFileModal(this.app, mp3Files).open();
+				new CreateNewAudioNoteInNewFileModal(this.app, mp3Files, this.getSettingsAudioNotesApiKey(), this.getInfoByApiKey()).open();
 				this._updateCounts();
 			}
 		});
