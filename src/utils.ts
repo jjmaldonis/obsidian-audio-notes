@@ -1,6 +1,24 @@
 import { findIconDefinition, icon as getFAIcon } from "@fortawesome/fontawesome-svg-core";
 import type { IconName } from "@fortawesome/fontawesome-svg-core";
 import { IconPrefix } from "@fortawesome/free-regular-svg-icons";
+import { MarkdownPostProcessorContext, MarkdownRenderChild, MarkdownRenderer } from "obsidian";
+
+
+/* A helper method to render HTML elements more easily. */
+export function renderMarkdown(parent: HTMLElement, obj: HTMLElement, sourcePath: string, ctx: MarkdownPostProcessorContext | undefined, withText: string): void {
+	const markdownRenderChild = _createMarkdownRenderChildWithCtx(obj, ctx);
+	MarkdownRenderer.renderMarkdown(withText, parent, sourcePath, markdownRenderChild);
+}
+
+/* A second helper method to render HTML elements more easily. */
+function _createMarkdownRenderChildWithCtx(element: HTMLElement, ctx: MarkdownPostProcessorContext | undefined): MarkdownRenderChild {
+	const markdownRenderChild = new MarkdownRenderChild(element);
+	markdownRenderChild.containerEl = element;
+	if (ctx && !(typeof ctx == "string")) {
+		ctx.addChild(markdownRenderChild);
+	}
+	return markdownRenderChild;
+}
 
 
 export class DefaultMap<K, V> extends Map<K, V> {

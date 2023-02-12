@@ -1,4 +1,42 @@
-import { DefaultMap, secondsToTimeString } from "./utils";
+import { Notice } from "obsidian";
+import { Transcript } from "./Transcript";
+import { DefaultMap, secondsToTimeString, timeStringToSeconds } from "./utils";
+
+
+/* A helper method to get the start/end/speed info from an audio note src's text. */
+export function getStartAndEndFromBracketString(timeInfo: string): [number, number, number] {
+	const split = timeInfo.split("&");
+	let start = undefined;
+	let end = undefined;
+	let speed = undefined;
+	for (let queryParam of split) {
+		if (queryParam.startsWith("t=")) {
+			queryParam = queryParam.slice(2, undefined);
+			if (queryParam.includes(",")) {
+				[start, end] = queryParam.split(",")
+				start = timeStringToSeconds(start);
+				end = timeStringToSeconds(end);
+			} else {
+				start = timeStringToSeconds(queryParam);
+				end = Infinity;
+			}
+		}
+		if (queryParam.startsWith("s=")) {
+			queryParam = queryParam.slice(2, undefined);
+			speed = parseFloat(queryParam);
+		}
+	}
+	if (speed === undefined) {
+		speed = 1.0;
+	}
+	if (start === undefined) {
+		start = 0;
+	}
+	if (end === undefined) {
+		end = Infinity;
+	}
+	return [start, end, speed];
+}
 
 
 export const getAudioPlayerIdentify = (element: HTMLElement): string => {
@@ -76,6 +114,123 @@ export class AudioNote extends AudioBlock {
 		super(audioFilename, _start, _end, _speed);
 	}
 
+	/* Given the text representation of an audio note that a user writes, create an AudioNote object. */
+	static fromSrc(src: string): AudioNote {
+		const lines = src.split(/\r?\n/);
+		let title = undefined;
+		let author = undefined;
+		let audioLine = undefined;
+		let transcriptFilename = undefined;
+		let quoteCreatedForLine = undefined;
+		let quoteLines: string[] = [];
+		let quoteHasStarted = false;
+		for (const line of lines) {
+			if (quoteHasStarted) {
+				quoteLines.push(line);
+			} else if (line.startsWith("title:")) {
+				title = line.split(":").slice(1, undefined).join(":").trim();
+			} else if (line.startsWith("author:")) {
+				author = line.split(":").slice(1, undefined).join(":").trim();
+			} else if (line.startsWith("audio:")) {
+				audioLine = line.split(":").slice(1, undefined).join(":").trim();
+			} else if (line.startsWith("transcript:")) {
+				transcriptFilename = line.split(":").slice(1, undefined).join(":").trim();
+			} else if (line.trim() === "---") {
+				quoteHasStarted = true;
+			}
+		}
+		if (audioLine === undefined) {
+			new Notice("No audio file defined for audio note.", 10000);
+			throw new Error("No audio file defined");
+		}
+
+		const extendAudio = audioLine.includes("!");
+		let audioFilename = undefined;
+		let start = undefined;
+		let end = undefined;
+		let speed = undefined;
+		if (!audioLine.includes("#")) {
+			audioFilename = audioLine;
+			start = 0;
+			end = Infinity;
+			speed = 1.0;
+		} else {
+			audioFilename = audioLine.split("#")[0];
+			const timeInfo = audioLine.split("#")[1];
+			[start, end, speed] = getStartAndEndFromBracketString(timeInfo);
+		}
+
+		// Go through the lines in the quote, and for any that start with a `-`, prepend the escape character.
+		for (let i = 0; i < quoteLines.length; i++) {
+			if (quoteLines[i].startsWith("-")) {
+				quoteLines[i] = `\\${quoteLines[i]}`
+			}
+		}
+		const quote = quoteLines.join("\n").trim() || undefined;
+		let quoteCreatedForStart = undefined;
+		let quoteCreatedForEnd = undefined;
+		if (quoteCreatedForLine) {
+			[quoteCreatedForStart, quoteCreatedForEnd,] = getStartAndEndFromBracketString(quoteCreatedForLine);
+		}
+
+		const audioNote = new AudioNote(title, author, audioFilename, start, end, speed, transcriptFilename, quoteCreatedForStart, quoteCreatedForEnd, quote, extendAudio);
+		return audioNote;
+	}
+
+	toSrc(transcript: Transcript | undefined): string | undefined {
+		if (this.quote && this.quote.includes("`")) {
+			new Notice("Before the generation can be run, you must remove any audio notes that have the character ` in their quote.", 10000);
+			return undefined;
+		}
+		if (this.start >= this.end) {
+			new Notice("An audio note has a start time that is after the end time. Fix it!", 10000);
+			return undefined;
+		}
+		// Get the new quote.
+		if (!transcript) {
+			console.error(`Audio Notes: Could not find transcript: ${this.transcriptFilename}`);
+			new Notice(`Could not find transcript: ${this.transcriptFilename}`, 10000);
+		}
+
+		let start = this.start;
+		let end = this.end;
+		let newQuote = "";
+		if (transcript) {
+			let quoteStart = undefined;
+			let quoteEnd = undefined;
+			[quoteStart, quoteEnd, newQuote] = transcript.getQuote(start, end);
+			if (this.extendAudio) {
+				start = quoteStart;
+				end = quoteEnd;
+			}
+		}
+
+		// Create the new audio note text.
+		let newAudioNoteText = `audio: ${this.audioFilename}`;
+		if (start) {
+			newAudioNoteText += `#t=${secondsToTimeString(start, false)}`;
+			if (end !== Infinity) {
+				newAudioNoteText += `,${secondsToTimeString(end, false)}`;
+			}
+		}
+		if (this.speed !== 1.0) {
+			if (newAudioNoteText.includes("#")) {
+				newAudioNoteText += `&s=${this.speed}`
+			} else {
+				newAudioNoteText += `#s=${this.speed}`
+			}
+		}
+		newAudioNoteText += `\n`;
+		newAudioNoteText += `title: ${this.title}\n`;
+		newAudioNoteText += `transcript: ${this.transcriptFilename}\n`;
+		if (this.author) {
+			newAudioNoteText += `author: ${this.author}\n`;
+		}
+		newAudioNoteText += `---\n`;
+		newAudioNoteText += `${newQuote}`;
+		return newAudioNoteText;
+	}
+
 	get needsToBeUpdated(): boolean {
 		if (!this.quote) {
 			return true;
@@ -84,6 +239,7 @@ export class AudioNote extends AudioBlock {
 		}
 	}
 
+	/* Returns the title of the Audio Note for display in the quote */
 	getFormattedTitle(): string {
 		let viewableStartTime = undefined;
 		let viewableEndTime = undefined;
@@ -163,6 +319,12 @@ export class AudioNoteWithPositionInfo extends AudioNote {
 
 /**
  * Cache for `audio` HTML elements. The cache has a max size to prevent a significant memory leak.
+ * The cache is necessary because in the Live Preview mode, there can be multiple renders of the same
+ * audio file, and each of those renders needs to be updated.
+ * The alternative would be to scan the existing DOMs (all modes) manually for any players with the
+ * same source, and identify the multiple players this way. This way is more computationally expensive,
+ * so I've gone with the solution that requires (slightly) more memory (although in practice it likely
+ * requires even less memory because it doesn't need to constantly scan the DOMs).
  */
 export class AudioElementCache {
 	private cache: DefaultMap<string, [HTMLElement, number][]>;
@@ -247,4 +409,3 @@ export class AudioElementCache {
 		}
 	}
 }
-

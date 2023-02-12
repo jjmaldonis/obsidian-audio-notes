@@ -1,5 +1,5 @@
 import { FuzzySuggestModal, App, TFile, Notice, MarkdownView, request } from "obsidian";
-import { ApiKeyInfo } from "./EnqueueAudioModal";
+import { ApiKeyInfo } from "./AudioNotesSettings";
 import { createSelect, Podcast, PodcastEpisode, WHISPER_LANGUAGE_CODES } from "./utils";
 
 

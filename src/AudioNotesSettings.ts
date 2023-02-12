@@ -2,6 +2,18 @@ import AutomaticAudioNotes from "./main";
 import { PluginSettingTab, Setting, Notice, ToggleComponent, request, App } from "obsidian";
 import { secondsToTimeString } from "./utils";
 
+
+export class ApiKeyInfo {
+	constructor(
+		public api_key: string,
+		public paying: boolean,
+		public tier: string,
+		public queued: string[],
+		public transcripts: string[],
+	) { }
+}
+
+
 export class AudioNotesSettingsTab extends PluginSettingTab {
 	plugin: AutomaticAudioNotes;
 
@@ -21,7 +33,7 @@ export class AudioNotesSettingsTab extends PluginSettingTab {
 			.addText((text) =>
 				text
 					.setPlaceholder("30")
-					.setValue(this.plugin.settings.plusMinusDuration)
+					.setValue(this.plugin.settings.plusMinusDuration.toString())
 					.onChange(async (value) => {
 						try {
 							parseFloat(value);
@@ -39,7 +51,7 @@ export class AudioNotesSettingsTab extends PluginSettingTab {
 			.addText((text) =>
 				text
 					.setPlaceholder("5")
-					.setValue(this.plugin.settings.forwardStep)
+					.setValue(this.plugin.settings.forwardStep.toString())
 					.onChange(async (value) => {
 						try {
 							parseFloat(value);
@@ -57,7 +69,7 @@ export class AudioNotesSettingsTab extends PluginSettingTab {
 			.addText((text) =>
 				text
 					.setPlaceholder("15")
-					.setValue(this.plugin.settings.backwardStep)
+					.setValue(this.plugin.settings.backwardStep.toString())
 					.onChange(async (value) => {
 						try {
 							parseFloat(value);
@@ -97,7 +109,7 @@ export class AudioNotesSettingsTab extends PluginSettingTab {
 			url: 'https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/users/files',
 			method: 'GET',
 			headers: {
-				'x-api-key': this.plugin.getSettingsAudioNotesApiKey(),
+				'x-api-key': this.plugin.settings.audioNotesApiKey,
 			},
 			contentType: 'application/json',
 		}).then((result: string) => {
@@ -120,7 +132,7 @@ export class AudioNotesSettingsTab extends PluginSettingTab {
 						url: 'https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/transcriptions',
 						method: 'GET',
 						headers: {
-							'x-api-key': this.plugin.getSettingsAudioNotesApiKey(),
+							'x-api-key': this.plugin.settings.audioNotesApiKey,
 							"url": url,
 						},
 						contentType: 'application/json',
@@ -136,7 +148,8 @@ export class AudioNotesSettingsTab extends PluginSettingTab {
 	}
 }
 
-export interface AudioNotesSettings {
+
+export interface StringifiedAudioNotesSettings {
 	plusMinusDuration: string;
 	backwardStep: string;
 	forwardStep: string;
@@ -144,10 +157,116 @@ export interface AudioNotesSettings {
 	debugMode: boolean;
 }
 
-export const DEFAULT_SETTINGS: Partial<AudioNotesSettings> = {
+const DEFAULT_SETTINGS: StringifiedAudioNotesSettings = {
 	plusMinusDuration: "30",
 	backwardStep: "5",
 	forwardStep: "15",
 	audioNotesApiKey: "",
 	debugMode: false,
 };
+
+export class AudioNotesSettings {
+	constructor(
+		private _plusMinusDuration: number,
+		private _backwardStep: number,
+		private _forwardStep: number,
+		private _audioNotesApiKey: string,
+		private _debugMode: boolean
+	) { }
+
+	static fromDefaultSettings(): AudioNotesSettings {
+		return new AudioNotesSettings(
+			parseFloat(DEFAULT_SETTINGS.plusMinusDuration),
+			parseFloat(DEFAULT_SETTINGS.backwardStep),
+			parseFloat(DEFAULT_SETTINGS.forwardStep),
+			DEFAULT_SETTINGS.audioNotesApiKey,
+			DEFAULT_SETTINGS.debugMode,
+		);
+	}
+
+	static overrideDefaultSettings(data: StringifiedAudioNotesSettings): AudioNotesSettings {
+		const settings = AudioNotesSettings.fromDefaultSettings();
+		if (data.plusMinusDuration !== null && data.plusMinusDuration !== undefined) {
+			settings.plusMinusDuration = data.plusMinusDuration!;
+		}
+		if (data.backwardStep !== null && data.backwardStep !== undefined) {
+			settings.backwardStep = data.backwardStep!;
+		}
+		if (data.forwardStep !== null && data.forwardStep !== undefined) {
+			settings.forwardStep = data.forwardStep!;
+		}
+		if (data.audioNotesApiKey !== null && data.audioNotesApiKey !== undefined) {
+			settings.audioNotesApiKey = data.audioNotesApiKey!;
+		}
+		if (data.debugMode !== null && data.debugMode !== undefined) {
+			settings.debugMode = data.debugMode!;
+		}
+		return settings;
+	}
+
+	get plusMinusDuration(): number {
+		return this._plusMinusDuration;
+	}
+
+	set plusMinusDuration(value: number | string) {
+		if (typeof value === "string") {
+			value = parseFloat(value);
+		}
+		this._plusMinusDuration = value;
+	}
+
+	get backwardStep(): number {
+		return this._backwardStep;
+	}
+
+	set backwardStep(value: number | string) {
+		if (typeof value === "string") {
+			value = parseFloat(value);
+		}
+		this._backwardStep = value;
+	}
+
+	get forwardStep(): number {
+		return this._forwardStep;
+	}
+
+	set forwardStep(value: number | string) {
+		if (typeof value === "string") {
+			value = parseFloat(value);
+		}
+		this._forwardStep = value;
+	}
+
+	get audioNotesApiKey(): string {
+		return this._audioNotesApiKey;
+	}
+
+	set audioNotesApiKey(value: string) {
+		this._audioNotesApiKey = value;
+	}
+
+	get debugMode(): boolean {
+		return this._debugMode;
+	}
+
+	set debugMode(value: boolean) {
+		this._debugMode = value;
+	}
+
+	async getInfoByApiKey(): Promise<ApiKeyInfo | undefined> {
+		const apiKey = this.audioNotesApiKey;
+		if (apiKey) {
+			const infoString: string = await request({
+				url: 'https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/users/byapikey',
+				method: 'GET',
+				headers: {
+					'x-api-key': this.audioNotesApiKey,
+				},
+				contentType: 'application/json',
+			});
+			return JSON.parse(infoString) as ApiKeyInfo;
+		} else {
+			return undefined;
+		}
+	}
+}

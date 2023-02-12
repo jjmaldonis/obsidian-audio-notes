@@ -2,8 +2,6 @@ import {
 	MarkdownView,
 	Plugin,
 	MarkdownPostProcessorContext,
-	MarkdownRenderer,
-	MarkdownRenderChild,
 	Notice,
 	TFile,
 	Platform,
@@ -14,11 +12,11 @@ import {
 // Local imports
 import { monkeyPatchConsole } from './monkeyPatchConsole';
 import { CreateNewAudioNoteInNewFileModal } from './CreateNewAudioNoteInNewFileModal';
-import { ApiKeyInfo, EnqueueAudioModal } from './EnqueueAudioModal';
-import { generateRandomString, getIcon, secondsToTimeString, timeStringToSeconds, getUniqueId } from './utils';
-import { AudioNotesSettings, AudioNotesSettingsTab, DEFAULT_SETTINGS } from './AudioNotesSettings';
-import { AudioElementCache, AudioNote, AudioNoteWithPositionInfo, getAudioPlayerIdentify } from './AudioNotes';
-import { Transcript, parseTranscript, getYouTubeTranscript } from './Transcript';
+import { EnqueueAudioModal } from './EnqueueAudioModal';
+import { generateRandomString, getIcon, secondsToTimeString, getUniqueId, renderMarkdown } from './utils';
+import { AudioNotesSettings, AudioNotesSettingsTab } from './AudioNotesSettings';
+import { AudioElementCache, AudioNote, AudioNoteWithPositionInfo, getAudioPlayerIdentify, getStartAndEndFromBracketString } from './AudioNotes';
+import { Transcript, parseTranscript, TranscriptsCache } from './Transcript';
 
 // Load Font-Awesome stuff
 import { library } from "@fortawesome/fontawesome-svg-core";
@@ -31,12 +29,25 @@ library.add(fas, far, fab, faCopy);
 
 export default class AutomaticAudioNotes extends Plugin {
 	settings: AudioNotesSettings;
+	transcriptDatastore: TranscriptsCache;
 	knownCurrentTimes: Map<string, number> = new Map();
 	knownAudioPlayers: AudioElementCache = new AudioElementCache(30);
 	currentlyPlayingAudioFakeUuid: string | null = null;
 	atLeastOneNoteRendered: boolean = false;
 
-	private getCurrentlyPlayerAudioElement(): HTMLMediaElement | null {
+	private get isDesktop(): boolean {
+		return Platform.isDesktop || Platform.isDesktopApp || Platform.isMacOS;
+	}
+
+	async loadSettings() {
+		this.settings = AudioNotesSettings.overrideDefaultSettings(await this.loadData());
+	}
+
+	async saveSettings() {
+		await this.saveData(this.settings);
+	}
+
+	private getCurrentlyPlayingAudioElement(): HTMLMediaElement | null {
 		if (this.currentlyPlayingAudioFakeUuid) {
 			const knownPlayers = this.knownAudioPlayers.getAudioContainersWithTheSameSrc(this.currentlyPlayingAudioFakeUuid);
 			for (const knownPlayer of knownPlayers) {
@@ -61,42 +72,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		throw new Error(`Could not find currently playing audio with ID: ${this.currentlyPlayingAudioFakeUuid}`);
 	}
 
-	private get isDesktop(): boolean {
-		return Platform.isDesktop || Platform.isDesktopApp || Platform.isMacOS;
-	}
-
-	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-	}
-
-	async saveSettings() {
-		await this.saveData(this.settings);
-	}
-
-	getSettingsDynamically(): AudioNotesSettings {
-		return this.settings;
-	}
-
-	getSettingsPlusMinusDuration(): number {
-		return parseFloat(this.settings.plusMinusDuration);
-	}
-
-	getSettingsBackwardStep(): number {
-		return parseFloat(this.settings.backwardStep);
-	}
-
-	getSettingsForwardStep(): number {
-		return parseFloat(this.settings.forwardStep);
-	}
-
-	getSettingsAudioNotesApiKey(): string {
-		return this.settings.audioNotesApiKey;
-	}
-
-	getSettingsDebugMode(): boolean {
-		return this.settings.debugMode;
-	}
-
+	/* Keep track of each source's current time, and update any other audio players with the same source. */
 	updateCurrentTimeOfAudio(audio: HTMLMediaElement): void {
 		// There is a minor bug if users delete a src and readd the same src, because the currentTime will change on the new src.
 		this.knownCurrentTimes.set(audio.src, audio.currentTime);
@@ -112,6 +88,28 @@ export default class AutomaticAudioNotes extends Plugin {
 				const seeker = (knownPlayer.querySelector(".seek-slider")! as any);
 				seeker.value = audio.currentTime.toString();
 			}
+		}
+	}
+
+	/**
+	 * Persist the position of the audio on disk so it gets loaded at the time the user left off when the restart the app.
+	 * As of writing this, the position is only written to disk when the user interacts with a player using the play/pause/
+	 * reset buttons or when the audio ends.
+	 */
+	async saveCurrentPlayerPosition(audio: HTMLMediaElement | null | undefined): Promise<void> {
+		if (!audio) {
+			audio = this.getCurrentlyPlayingAudioElement();
+		}
+		if (audio) {
+			let data = await this.loadData();
+			if (!data) {
+				data = new Object();
+			}
+			if (!data.positions) {
+				data.positions = new Object();
+			}
+			data.positions[audio.currentSrc] = [audio.currentTime, (new Date()).getTime()];
+			await this.saveData(data);
 		}
 	}
 
@@ -145,15 +143,18 @@ export default class AutomaticAudioNotes extends Plugin {
 			this.saveData(data);
 		}
 
+		// Create the TranscriptsCache
+		this.transcriptDatastore = new TranscriptsCache(this.settings, this.loadFiles);
+
 		// Log to log.txt file if on mobile and debugging mode is enabled.
-		if (!this.isDesktop && this.getSettingsDebugMode()) {
+		if (!this.isDesktop && this.settings.debugMode) {
 			monkeyPatchConsole(this);
 		}
 
 		// Add all the commands
 		this.addCommand({
 			id: 'create-new-audio-note',
-			name: `Create new Audio Note at current time (+/- ${this.getSettingsPlusMinusDuration()} seconds)`,
+			name: `Create new Audio Note at current time (+/- ${this.settings.plusMinusDuration} seconds)`,
 			checkCallback: (checking: boolean) => {
 				// Conditions to check
 				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
@@ -174,8 +175,8 @@ export default class AutomaticAudioNotes extends Plugin {
 							if (!currentTime) {
 								currentTime = audioNote.start;
 							}
-							audioNote.start = currentTime - this.getSettingsPlusMinusDuration();
-							audioNote.end = currentTime + this.getSettingsPlusMinusDuration();
+							audioNote.start = currentTime - this.settings.plusMinusDuration;
+							audioNote.end = currentTime + this.settings.plusMinusDuration;
 							this.createNewAudioNoteAtEndOfFile(markdownView, audioNote).catch((error) => {
 								console.error(`Audio Notes: ${error}`);
 								new Notice("Coud not create audio note at end of file.", 10000);
@@ -192,7 +193,7 @@ export default class AutomaticAudioNotes extends Plugin {
 
 		this.addCommand({
 			id: "create-audio-note-from-media-extended-plugin",
-			name: `(Media Extended YouTube Video) Create new Audio Note at current time (+/- ${this.getSettingsPlusMinusDuration()} seconds)`,
+			name: `(Media Extended YouTube Video) Create new Audio Note at current time (+/- ${this.settings.plusMinusDuration} seconds)`,
 			checkCallback: (checking: boolean) => {
 				// https://github.com/aidenlx/media-extended/blob/1e8f37756403423cd100e51f58d27ed961acf56b/src/mx-main.ts#L120
 				type MediaView = any;
@@ -241,7 +242,7 @@ export default class AutomaticAudioNotes extends Plugin {
 									const currentTime = parseFloat(notTimestamp.split("#t=")[1].slice(0, -1));
 									const audioNote = new AudioNote(
 										title, notTimestamp, url,
-										currentTime - this.getSettingsPlusMinusDuration(), currentTime + this.getSettingsPlusMinusDuration(), 1.0,
+										currentTime - this.settings.plusMinusDuration, currentTime + this.settings.plusMinusDuration, 1.0,
 										url,
 										undefined, undefined, undefined,
 										false
@@ -317,7 +318,7 @@ export default class AutomaticAudioNotes extends Plugin {
 			callback: async () => {
 				const allFiles = this.app.vault.getFiles();
 				const mp3Files = allFiles.filter((file: TFile) => file.extension === "mp3" || file.extension === "m4b" || file.extension === "m4a");
-				new CreateNewAudioNoteInNewFileModal(this.app, mp3Files, this.getSettingsAudioNotesApiKey(), this.getInfoByApiKey()).open();
+				new CreateNewAudioNoteInNewFileModal(this.app, mp3Files, this.settings.audioNotesApiKey, this.settings.getInfoByApiKey()).open();
 				this._updateCounts();
 			}
 		});
@@ -326,7 +327,7 @@ export default class AutomaticAudioNotes extends Plugin {
 			id: 'toggle-play',
 			name: 'Toggle Play/Pause',
 			callback: async () => {
-				const audioPlayer = this.getCurrentlyPlayerAudioElement();
+				const audioPlayer = this.getCurrentlyPlayingAudioElement();
 				if (audioPlayer) {
 					if (audioPlayer.paused || audioPlayer.ended) {
 						audioPlayer.play();
@@ -341,9 +342,9 @@ export default class AutomaticAudioNotes extends Plugin {
 			id: 'skip-backward',
 			name: 'Skip Backward',
 			callback: async () => {
-				const audioPlayer = this.getCurrentlyPlayerAudioElement();
+				const audioPlayer = this.getCurrentlyPlayingAudioElement();
 				if (audioPlayer) {
-					audioPlayer.currentTime -= this.getSettingsBackwardStep();
+					audioPlayer.currentTime -= this.settings.backwardStep;
 				}
 			}
 		});
@@ -352,9 +353,9 @@ export default class AutomaticAudioNotes extends Plugin {
 			id: 'skip-forward',
 			name: 'Skip Forward',
 			callback: async () => {
-				const audioPlayer = this.getCurrentlyPlayerAudioElement();
+				const audioPlayer = this.getCurrentlyPlayingAudioElement();
 				if (audioPlayer) {
-					audioPlayer.currentTime += this.getSettingsForwardStep();
+					audioPlayer.currentTime += this.settings.forwardStep;
 				}
 			}
 		});
@@ -363,7 +364,7 @@ export default class AutomaticAudioNotes extends Plugin {
 			id: 'slow-down-playback',
 			name: 'Slow Down Playback',
 			callback: async () => {
-				const audioPlayer = this.getCurrentlyPlayerAudioElement();
+				const audioPlayer = this.getCurrentlyPlayingAudioElement();
 				if (audioPlayer) {
 					audioPlayer.playbackRate -= 0.1;
 					new Notice(`Set playback speed to ${Math.round(audioPlayer.playbackRate * 10) / 10}`, 1000);
@@ -375,7 +376,7 @@ export default class AutomaticAudioNotes extends Plugin {
 			id: 'speed-up-playback',
 			name: 'Speed Up Playback',
 			callback: async () => {
-				const audioPlayer = this.getCurrentlyPlayerAudioElement();
+				const audioPlayer = this.getCurrentlyPlayingAudioElement();
 				if (audioPlayer) {
 					audioPlayer.playbackRate += 0.1;
 					new Notice(`Set playback speed to ${Math.round(audioPlayer.playbackRate * 10) / 10}`, 1000);
@@ -387,13 +388,13 @@ export default class AutomaticAudioNotes extends Plugin {
 			id: 'reset-player',
 			name: 'Reset Audio to Start',
 			callback: async () => {
-				const audioPlayer = this.getCurrentlyPlayerAudioElement();
+				const audioPlayer = this.getCurrentlyPlayingAudioElement();
 				if (audioPlayer) {
 					const audioLine = audioPlayer.src;
 					let start = 0;
 					if (audioLine.includes("#")) {
 						const timeInfo = audioLine.split("#")[1];
-						[start, ,] = this._getStartAndEndFromBracketString(timeInfo);
+						[start, ,] = getStartAndEndFromBracketString(timeInfo);
 					}
 					audioPlayer.currentTime = start;
 				}
@@ -404,7 +405,7 @@ export default class AutomaticAudioNotes extends Plugin {
 			id: 'add-audio-file-to-queue',
 			name: 'Transcribe mp3 file online',
 			callback: async () => {
-				new EnqueueAudioModal(this.app, this.getSettingsAudioNotesApiKey(), this.getInfoByApiKey()).open();
+				new EnqueueAudioModal(this.app, this.settings.audioNotesApiKey, this.settings.getInfoByApiKey()).open();
 			}
 		});
 
@@ -418,13 +419,13 @@ export default class AutomaticAudioNotes extends Plugin {
 		console.log("Audio Notes: Obsidian Audio Notes loaded")
 	}
 
-	async _updateCounts() {
+	private async _updateCounts() {
 		const data = await this.loadData();
 		data.counts = (data.counts || 0) + 1;
 		this.saveData(data);
 	}
 
-	async _onFirstRender() {
+	private async _onFirstRender() {
 		const data = await this.loadData();
 		const uuid = data.uuid;
 		const counts = data.counts || 0;
@@ -437,7 +438,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		}
 	}
 
-	_replaceElementWithError(el: HTMLElement, error: Error): void {
+	private _replaceElementWithError(el: HTMLElement, error: Error): void {
 		const pre = createEl("pre");
 		pre.createEl("code", {
 			attr: {
@@ -453,7 +454,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		el.replaceWith(pre);
 	}
 
-	async loadFiles(filenames: string[]): Promise<Map<string, string>> {
+	private async loadFiles(filenames: string[]): Promise<Map<string, string>> {
 		const results = new Map<string, string>();
 		for (const filename of filenames) {
 			const f = this.app.vault.getAbstractFileByPath(filename);
@@ -467,7 +468,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		return results;
 	}
 
-	async postprocessor(src: string, el: HTMLElement, ctx?: MarkdownPostProcessorContext) {
+	private async postprocessor(src: string, el: HTMLElement, ctx?: MarkdownPostProcessorContext) {
 		try {
 			// Need this for rendering.
 			const currentMdFilename =
@@ -477,7 +478,7 @@ export default class AutomaticAudioNotes extends Plugin {
 					this.app.workspace.getActiveFile()?.path ??
 					"";
 
-			const audioNote = this.createAudioNoteFromSrc(src);
+			const audioNote = AudioNote.fromSrc(src);
 			const theDiv = this._createAudioNoteDiv(audioNote, currentMdFilename, ctx);
 
 			// Replace the <pre> tag with the new callout div.
@@ -530,7 +531,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		}
 		const formattedTitle = audioNote.getFormattedTitle();
 		const titleInnerEl = titleEl.createDiv("audio-note-title-inner");
-		this.renderMarkdown(titleEl, titleInnerEl, currentMdFilename, undefined, formattedTitle);
+		renderMarkdown(titleEl, titleInnerEl, currentMdFilename, undefined, formattedTitle);
 		if (titleInnerEl.firstElementChild && titleInnerEl.firstElementChild instanceof HTMLParagraphElement) {
 			titleInnerEl.setChildrenInPlace(Array.from(titleInnerEl.firstElementChild.childNodes));
 		}
@@ -541,7 +542,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		if (audioNote.quote) {
 			text += audioNote.quote;
 		}
-		this.renderMarkdown(calloutDiv, contentEl, currentMdFilename, ctx, audioNote.quote || "")
+		renderMarkdown(calloutDiv, contentEl, currentMdFilename, ctx, audioNote.quote || "")
 
 		// Add the author to the div.
 		if (audioNote.author) {
@@ -551,25 +552,29 @@ export default class AutomaticAudioNotes extends Plugin {
 				authorStr = `\\${authorStr}`; // prepend a \ to escape the - so it does turn into a bullet point when the HTML renders
 			}
 			const authorInnerEl = authorEl.createDiv("audio-note-author");
-			this.renderMarkdown(authorEl, authorInnerEl, currentMdFilename, undefined, authorStr);
+			renderMarkdown(authorEl, authorInnerEl, currentMdFilename, undefined, authorStr);
 			if (authorInnerEl.firstElementChild) {
 				authorInnerEl.setChildrenInPlace(Array.from(authorInnerEl.firstElementChild.childNodes));
 			}
 		}
 
-		// Create the audio div.
+		// Create the audio player div.
 		if (!audioNote.audioFilename.includes("youtube.com")) {
-			const audioDiv = this._createAudioDiv(audioNote);
+			const audioDiv = this._createAudioPlayerDiv(audioNote);
 			if (audioDiv === undefined) {
 				return calloutDiv;
 			}
 			calloutDiv.appendChild(audioDiv);
-			this.renderMarkdown(calloutDiv, audioDiv, currentMdFilename, ctx, ``);
+			renderMarkdown(calloutDiv, audioDiv, currentMdFilename, ctx, ``);
 		}
 
 		return calloutDiv;
 	}
 
+	/**
+	 * Figures out the true audio src's path, and appends the player's start/end time to it.
+	 * The src can be an http(s) link, or a local file.
+	 */
 	private _getFullAudioSrcPath(audioNote: AudioNote): string | undefined {
 		let audioSrcPath: string | undefined = undefined;
 		// If the filename is a link, don't look for it in the vault.
@@ -594,19 +599,10 @@ export default class AutomaticAudioNotes extends Plugin {
 		return audioSrcPath;
 	}
 
-	private _createAudioDiv(audioNote: AudioNote): HTMLElement | undefined {
-		/* https://css-tricks.com/lets-create-a-custom-audio-player/
-		<div id="audio-player-container">
-			<audio src="https://assets.codepen.io/4358584/Anitek_-_Komorebi.mp3" preload="metadata" loop></audio>
-			<button id="play-icon"></button>
-			<span id="current-time" class="time">0:00</span>
-			<input type="range" id="seek-slider" max="100" value="0">
-			<span id="duration" class="time">0:00</span>
-			<output id="volume-output">100</output>
-			<input type="range" id="volume-slider" max="100" value="100">
-			<button id="mute-icon"></button>
-		</div>
-		*/
+	/**
+	 * Render the custom audio player itself, and hook up all the buttons to perform the correct functionality.
+	 */
+	private _createAudioPlayerDiv(audioNote: AudioNote): HTMLElement | undefined {
 		const fakeUuid: string = generateRandomString(8);
 
 		const audioSrcPath = this._getFullAudioSrcPath(audioNote);
@@ -701,47 +697,49 @@ export default class AutomaticAudioNotes extends Plugin {
 			seeker.value = audio.currentTime.toString();
 		}
 
-		let timeout: NodeJS.Timeout;
+		// Create a function that, when the user presses and holds the forward or back button, the forward/back
+		// amount increases as the user holds it down, up to a maximum rate.
+		let holdForwardBackwardTimeout: NodeJS.Timeout;
 		const holdit = (btn: HTMLButtonElement, action: () => void, start: number, speedup: number, forward: boolean) => {
 			let mousedownTimeoutStarted = false;
 			let currentSpeed = start;
 
 			const repeat = function () {
 				action();
-				timeout = setTimeout(repeat, currentSpeed);
+				holdForwardBackwardTimeout = setTimeout(repeat, currentSpeed);
 				if (currentSpeed > 75) { // don't go too fast!
 					currentSpeed = currentSpeed / speedup;
 				}
 			}
 
 			// Supposedly `onpointerup` and `onpointerdown` work on both touch and non touch devices, but I haven't tested.
-			if (this.isDesktop) {
+			if (this.isDesktop) { // For Desktop
 				btn.onmousedown = function () {
 					mousedownTimeoutStarted = true;
 					repeat();
 				}
 
 				btn.onmouseup = function () {
-					if (timeout) {
-						clearTimeout(timeout);
+					if (holdForwardBackwardTimeout) {
+						clearTimeout(holdForwardBackwardTimeout);
 					}
 					currentSpeed = start;
 				}
-			} else {
+			} else { // For Mobile
 				btn.onpointerdown = function () {
 					mousedownTimeoutStarted = true;
 					repeat();
 				}
 
 				btn.onpointerup = function () {
-					if (timeout) {
-						clearTimeout(timeout);
+					if (holdForwardBackwardTimeout) {
+						clearTimeout(holdForwardBackwardTimeout);
 					}
 					currentSpeed = start;
 				}
 				btn.onpointercancel = function () {
-					if (timeout) {
-						clearTimeout(timeout);
+					if (holdForwardBackwardTimeout) {
+						clearTimeout(holdForwardBackwardTimeout);
 					}
 					currentSpeed = start;
 				}
@@ -750,9 +748,9 @@ export default class AutomaticAudioNotes extends Plugin {
 			btn.onClickEvent(() => {
 				if (!mousedownTimeoutStarted) {
 					if (forward) {
-						audio.currentTime += this.getSettingsForwardStep();
+						audio.currentTime += this.settings.forwardStep;
 					} else {
-						audio.currentTime -= this.getSettingsBackwardStep();
+						audio.currentTime -= this.settings.backwardStep;
 					}
 					updateTime(timeSpan, audio);
 					updateSeeker(audio, seeker);
@@ -761,20 +759,23 @@ export default class AutomaticAudioNotes extends Plugin {
 			});
 		};
 
+		// Apply the `holdit` functionality to the forward button
 		holdit(forwardButton, () => {
-			audio.currentTime += this.getSettingsForwardStep();
+			audio.currentTime += this.settings.forwardStep;
 			updateTime(timeSpan, audio);
 			updateSeeker(audio, seeker);
 			this.updateCurrentTimeOfAudio(audio);
 		}, 500, 1.2, true);
 
+		// Apply the `holdit` functionality to the backward button
 		holdit(backwardButton, () => {
-			audio.currentTime -= this.getSettingsBackwardStep();
+			audio.currentTime -= this.settings.backwardStep;
 			updateTime(timeSpan, audio);
 			updateSeeker(audio, seeker);
 			this.updateCurrentTimeOfAudio(audio);
 		}, 500, 1.2, false);
 
+		// Reset the audio player's state when the reset button is pressed.
 		resetTimeButton.addEventListener('click', () => {
 			if (!audio.paused) {
 				audio.pause();
@@ -786,12 +787,13 @@ export default class AutomaticAudioNotes extends Plugin {
 			updateTime(timeSpan, audio);
 			updateSeeker(audio, seeker);
 			this.updateCurrentTimeOfAudio(audio);
-			if (timeout) {
-				clearTimeout(timeout);
+			if (holdForwardBackwardTimeout) {
+				clearTimeout(holdForwardBackwardTimeout);
 			}
-			this.saveCurrentPlayerPosition(audio);
+			this.saveCurrentPlayerPosition(audio);  // Persist the audio's time
 		});
 
+		// When the audio player is ready to play, update its seeker position and the note's current time.
 		if (audio.readyState > 0) {
 			updateSeeker(audio, seeker);
 			updateTime(timeSpan, audio);
@@ -802,32 +804,28 @@ export default class AutomaticAudioNotes extends Plugin {
 			});
 		}
 
-		audio.addEventListener('timeupdate', (ev: Event) => {
-			updateTime(timeSpan, audio);
-			updateSeeker(audio, seeker);
-			this.updateCurrentTimeOfAudio(audio);
-		});
-
 		audio.addEventListener('play', (ev: Event) => {
 			this.currentlyPlayingAudioFakeUuid = fakeUuid;
+			// Flip the play/pause button.
 			if (playIcon !== undefined && pauseIcon !== undefined) {
 				playIcon.parentNode?.replaceChild(pauseIcon, playIcon);
 			}
-			if (timeout) {
-				clearTimeout(timeout);
+			if (holdForwardBackwardTimeout) {
+				clearTimeout(holdForwardBackwardTimeout);
 			}
-			this.saveCurrentPlayerPosition(audio);
+			this.saveCurrentPlayerPosition(audio);  // Persist the audio's time
 		});
 
 		audio.addEventListener('pause', (ev: Event) => {
 			// this.currentlyPlayingAudioFakeUuid = null;
+			// Flip the play/pause button.
 			if (playIcon !== undefined && pauseIcon !== undefined) {
 				pauseIcon.parentNode?.replaceChild(playIcon, pauseIcon);
 			}
-			if (timeout) {
-				clearTimeout(timeout);
+			if (holdForwardBackwardTimeout) {
+				clearTimeout(holdForwardBackwardTimeout);
 			}
-			this.saveCurrentPlayerPosition(audio);
+			this.saveCurrentPlayerPosition(audio);  // Persist the audio's time
 		});
 
 		audio.addEventListener('ended', (ev: Event) => {
@@ -835,7 +833,14 @@ export default class AutomaticAudioNotes extends Plugin {
 			if (playIcon !== undefined && pauseIcon !== undefined) {
 				pauseIcon.parentNode?.replaceChild(playIcon, pauseIcon);
 			}
-			this.saveCurrentPlayerPosition(audio);
+			this.saveCurrentPlayerPosition(audio);  // Persist the audio's time
+		});
+
+		// When the audio player's time is updated, update the note's current time and the audio player's position.
+		audio.addEventListener('timeupdate', (ev: Event) => {
+			updateTime(timeSpan, audio);
+			updateSeeker(audio, seeker);
+			this.updateCurrentTimeOfAudio(audio);
 		});
 
 		seeker.addEventListener('input', () => {
@@ -876,12 +881,12 @@ export default class AutomaticAudioNotes extends Plugin {
 			navigator.mediaSession.setActionHandler('pause', () => { audio.pause(); });
 			navigator.mediaSession.setActionHandler('stop', () => { audio.pause(); });
 			navigator.mediaSession.setActionHandler('seekbackward', () => {
-				audio.currentTime -= this.getSettingsBackwardStep();
+				audio.currentTime -= this.settings.backwardStep;
 				updateTime(timeSpan, audio);
 				updateSeeker(audio, seeker);
 			});
 			navigator.mediaSession.setActionHandler('seekforward', () => {
-				audio.currentTime += this.getSettingsForwardStep();
+				audio.currentTime += this.settings.forwardStep;
 				updateTime(timeSpan, audio);
 				updateSeeker(audio, seeker);
 			});
@@ -924,21 +929,8 @@ export default class AutomaticAudioNotes extends Plugin {
 		}
 	}
 
-	renderMarkdown(parent: HTMLElement, obj: HTMLElement, sourcePath: string, ctx: MarkdownPostProcessorContext | undefined, withText: string): void {
-		const markdownRenderChild = this._createMarkdownRenderChildWithCtx(obj, ctx);
-		MarkdownRenderer.renderMarkdown(withText, parent, sourcePath, markdownRenderChild);
-	}
-
-	private _createMarkdownRenderChildWithCtx(element: HTMLElement, ctx: MarkdownPostProcessorContext | undefined): MarkdownRenderChild {
-		const markdownRenderChild = new MarkdownRenderChild(element);
-		markdownRenderChild.containerEl = element;
-		if (ctx && !(typeof ctx == "string")) {
-			ctx.addChild(markdownRenderChild);
-		}
-		return markdownRenderChild;
-	}
-
-	getAudioNoteBlocks(fileContents: string, limit: number = Infinity): AudioNoteWithPositionInfo[] {
+	/* Look through the .md file's contents and parse out any audio notes in it. */
+	private getAudioNoteBlocks(fileContents: string, limit: number = Infinity): AudioNoteWithPositionInfo[] {
 		const currentMdContentLines = fileContents.split(/\r?\n/);
 		// [startLineNumber, endLineNumber, endChNumber, srcLines]
 		const allAudioNoteCodeBlockStrings: ([number, number, number, string[]])[] = [];
@@ -965,7 +957,7 @@ export default class AutomaticAudioNotes extends Plugin {
 
 		const allAudioNotes: AudioNoteWithPositionInfo[] = [];
 		for (const [startLineNumber, endLineNumber, endChNumber, lines] of allAudioNoteCodeBlockStrings) {
-			const audioNote = this.createAudioNoteFromSrc(lines.join("\n"));
+			const audioNote = AudioNote.fromSrc(lines.join("\n"));
 			const audioNoteWithPositionInfo = AudioNoteWithPositionInfo.fromAudioNote(audioNote, startLineNumber, endLineNumber, endChNumber);
 			allAudioNotes.push(audioNoteWithPositionInfo);
 		}
@@ -973,262 +965,16 @@ export default class AutomaticAudioNotes extends Plugin {
 		return allAudioNotes;
 	}
 
-	private _getStartAndEndFromBracketString(timeInfo: string): [number, number, number] {
-		const split = timeInfo.split("&");
-		let start = undefined;
-		let end = undefined;
-		let speed = undefined;
-		for (let queryParam of split) {
-			if (queryParam.startsWith("t=")) {
-				queryParam = queryParam.slice(2, undefined);
-				if (queryParam.includes(",")) {
-					[start, end] = queryParam.split(",")
-					start = timeStringToSeconds(start);
-					end = timeStringToSeconds(end);
-				} else {
-					start = timeStringToSeconds(queryParam);
-					end = Infinity;
-				}
-			}
-			if (queryParam.startsWith("s=")) {
-				queryParam = queryParam.slice(2, undefined);
-				speed = parseFloat(queryParam);
-			}
-		}
-		if (speed === undefined) {
-			speed = 1.0;
-		}
-		if (start === undefined) {
-			start = 0;
-		}
-		if (end === undefined) {
-			end = Infinity;
-		}
-		return [start, end, speed];
-	}
-
-	createAudioNoteFromSrc(src: string): AudioNote {
-		const lines = src.split(/\r?\n/);
-		let title = undefined;
-		let author = undefined;
-		let audioLine = undefined;
-		let transcriptFilename = undefined;
-		let quoteCreatedForLine = undefined;
-		let quoteLines: string[] = [];
-		let quoteHasStarted = false;
-		for (const line of lines) {
-			if (quoteHasStarted) {
-				quoteLines.push(line);
-			} else if (line.startsWith("title:")) {
-				title = line.split(":").slice(1, undefined).join(":").trim();
-			} else if (line.startsWith("author:")) {
-				author = line.split(":").slice(1, undefined).join(":").trim();
-			} else if (line.startsWith("audio:")) {
-				audioLine = line.split(":").slice(1, undefined).join(":").trim();
-			} else if (line.startsWith("transcript:")) {
-				transcriptFilename = line.split(":").slice(1, undefined).join(":").trim();
-			} else if (line.trim() === "---") {
-				quoteHasStarted = true;
-			}
-		}
-		if (audioLine === undefined) {
-			new Notice("No audio file defined for audio note.", 10000);
-			throw new Error("No audio file defined");
-		}
-
-		const extendAudio = audioLine.includes("!");
-		let audioFilename = undefined;
-		let start = undefined;
-		let end = undefined;
-		let speed = undefined;
-		if (!audioLine.includes("#")) {
-			audioFilename = audioLine;
-			start = 0;
-			end = Infinity;
-			speed = 1.0;
-		} else {
-			audioFilename = audioLine.split("#")[0];
-			const timeInfo = audioLine.split("#")[1];
-			[start, end, speed] = this._getStartAndEndFromBracketString(timeInfo);
-		}
-
-		// Go through the lines in the quote, and for any that start with a `-`, prepend the escape character.
-		for (let i = 0; i < quoteLines.length; i++) {
-			if (quoteLines[i].startsWith("-")) {
-				quoteLines[i] = `\\${quoteLines[i]}`
-			}
-		}
-		const quote = quoteLines.join("\n").trim() || undefined;
-		let quoteCreatedForStart = undefined;
-		let quoteCreatedForEnd = undefined;
-		if (quoteCreatedForLine) {
-			[quoteCreatedForStart, quoteCreatedForEnd,] = this._getStartAndEndFromBracketString(quoteCreatedForLine);
-		}
-
-		const audioNote = new AudioNote(title, author, audioFilename, start, end, speed, transcriptFilename, quoteCreatedForStart, quoteCreatedForEnd, quote, extendAudio);
-		return audioNote;
-	}
-
-	createAudioNoteSrc(audioNote: AudioNote, transcript: Transcript | undefined, view: MarkdownView): string | undefined {
-		if (audioNote.quote && audioNote.quote.includes("`")) {
-			new Notice("Before the generation can be run, you must remove any audio notes that have the character ` in their quote.", 10000);
-			return undefined;
-		}
-		if (audioNote.start >= audioNote.end) {
-			new Notice("An audio note has a start time that is after the end time. Fix it!", 10000);
-			return undefined;
-		}
-		// Get the new quote.
-		if (!transcript) {
-			console.error(`Audio Notes: Could not find transcript: ${audioNote.transcriptFilename}`);
-			new Notice(`Could not find transcript: ${audioNote.transcriptFilename}`, 10000);
-		}
-
-		let start = audioNote.start;
-		let end = audioNote.end;
-		let newQuote = "";
-		if (transcript) {
-			let quoteStart = undefined;
-			let quoteEnd = undefined;
-			[quoteStart, quoteEnd, newQuote] = this._getQuoteFromTranscript(start, end, transcript);
-			if (audioNote.extendAudio) {
-				start = quoteStart;
-				end = quoteEnd;
-			}
-		}
-
-		// Create the new audio note text.
-		let newAudioNoteText = `audio: ${audioNote.audioFilename}`;
-		if (start) {
-			newAudioNoteText += `#t=${secondsToTimeString(start, false)}`;
-			if (end !== Infinity) {
-				newAudioNoteText += `,${secondsToTimeString(end, false)}`;
-			}
-		}
-		if (audioNote.speed !== 1.0) {
-			if (newAudioNoteText.includes("#")) {
-				newAudioNoteText += `&s=${audioNote.speed}`
-			} else {
-				newAudioNoteText += `#s=${audioNote.speed}`
-			}
-		}
-		newAudioNoteText += `\n`;
-		newAudioNoteText += `title: ${audioNote.title}\n`;
-		newAudioNoteText += `transcript: ${audioNote.transcriptFilename}\n`;
-		if (audioNote.author) {
-			newAudioNoteText += `author: ${audioNote.author}\n`;
-		}
-		newAudioNoteText += `---\n`;
-		newAudioNoteText += `${newQuote}`;
-		return newAudioNoteText;
-	}
-
-	private _getQuoteFromTranscript(quoteStart: number, quoteEnd: number, transcript: Transcript): [number, number, string] {
-		// Get the relevant part of the transcript.
-		const segments = transcript.segments;
-		const result = [];
-		let start = undefined;
-		let end = undefined;
-		for (let segment of segments) {
-			const text = segment.text;
-			const segmentStart = segment.start;
-			const segmentEnd = segment.end;
-			// If either the segment's start or end is inside the range specified by the user...
-			if ((quoteStart <= segmentStart && segmentStart < quoteEnd) || (quoteStart < segmentEnd && segmentEnd <= quoteEnd)) {
-				result.push(text);
-				if (start === undefined) {
-					start = segmentStart;
-				}
-				end = segmentEnd;
-			}
-			// If the range specified by the user is entirely within the segment...
-			if (quoteStart >= segmentStart && quoteEnd <= segmentEnd) {
-				result.push(text);
-				if (start === undefined) {
-					start = segmentStart;
-				}
-				end = segmentEnd;
-			}
-		}
-		let quoteText = result.join(" ").trim();
-		if (quoteText) {
-			// For some reason double spaces are often in the text. Remove them because they get removed by the HTML rendering anyway.
-			let i = 0;
-			while (quoteText.includes("  ")) {
-				quoteText = quoteText.replace(new RegExp("  "), " ");
-				// Make sure we don't hit an infinite loop, even though it should be impossible.
-				i += 1;
-				if (i > 100) {
-					break;
-				}
-			}
-		}
-		if (start === undefined || end === undefined) {
-			new Notice("Transcript file does not have start or end times for at least one text entry.");
-			console.error(segments);
-			throw new Error("Transcript file does not have start or end times for at least one text entry.");
-		}
-		return [start, end, quoteText];
-	}
-
-	async getFirstAudioNoteInFile(file: TFile): Promise<AudioNote> {
+	private async getFirstAudioNoteInFile(file: TFile): Promise<AudioNote> {
 		const fileContents = await this.app.vault.read(file);
 		const audioNotes: AudioNote[] = this.getAudioNoteBlocks(fileContents, 1);
 		return audioNotes[0];
 	}
 
-	async getInfoByApiKey(): Promise<ApiKeyInfo | undefined> {
-		const apiKey = this.getSettingsAudioNotesApiKey();
-		if (apiKey) {
-			const infoString: string = await request({
-				url: 'https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/users/byapikey',
-				method: 'GET',
-				headers: {
-					'x-api-key': this.getSettingsAudioNotesApiKey(),
-				},
-				contentType: 'application/json',
-			});
-			return JSON.parse(infoString) as ApiKeyInfo;
-		} else {
-			return undefined;
-		}
-	}
+	private async createNewAudioNoteAtEndOfFile(view: MarkdownView, audioNote: AudioNote): Promise<void> {
+		let transcript: Transcript | undefined = await this.transcriptDatastore.getTranscript(audioNote.transcriptFilename);
 
-	async getTranscript(transcriptFilename: string | undefined, checkFiles: boolean = true): Promise<Transcript | undefined> {
-		let transcript: string | undefined = undefined;
-		if (transcriptFilename !== undefined) {
-			if (checkFiles && (transcriptFilename.endsWith(".json") || transcriptFilename.endsWith(".srt"))) {
-				const translationFilesContents = await this.loadFiles([transcriptFilename]);
-				transcript = translationFilesContents.get(transcriptFilename);
-			} else if (transcriptFilename.includes("youtube.com")) {
-				const urlParts = transcriptFilename.split("?");
-				const urlParams: Map<string, string> = new Map();
-				for (const param of urlParts[1].split("&")) {
-					const [key, value] = param.split("=");
-					urlParams.set(key, value);
-				}
-				const url = `${urlParts[0]}?v=${urlParams.get("v")}`;
-				return await getYouTubeTranscript(url);
-			}
-			if (transcript === undefined) {
-				transcript = await request({
-					url: 'https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/transcriptions',
-					method: 'GET',
-					headers: {
-						'x-api-key': this.getSettingsAudioNotesApiKey(),
-						"url": transcriptFilename,
-					},
-					contentType: 'application/json',
-				});
-			}
-		}
-		return transcript ? parseTranscript(transcript) : undefined;
-	}
-
-	async createNewAudioNoteAtEndOfFile(view: MarkdownView, audioNote: AudioNote): Promise<void> {
-		let transcript: Transcript | undefined = await this.getTranscript(audioNote.transcriptFilename);
-
-		const newAudioNoteSrc = this.createAudioNoteSrc(audioNote, transcript, view);
+		const newAudioNoteSrc = audioNote.toSrc(transcript);
 		if (newAudioNoteSrc) {
 			this.app.vault.append(view.file, "\n```audio-note\n" + newAudioNoteSrc + "\n```\n");
 			new Notice("Created new audio note", 3000);
@@ -1236,7 +982,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		return undefined;
 	}
 
-	getAudioHTMLMediaElementsInMode(mode: HTMLElement): HTMLElement[] {
+	private getAudioHTMLMediaElementsInMode(mode: HTMLElement): HTMLElement[] {
 		const _players = mode.getElementsByClassName("audio-player-container");
 		const players: HTMLElement[] = [];
 		for (let i = 0; i < _players.length; i++) {
@@ -1245,7 +991,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		return players;
 	}
 
-	async regenerateAllAudioNotes(view: MarkdownView) {
+	private async regenerateAllAudioNotes(view: MarkdownView) {
 		new Notice('Regenerating All Audio Notes...');
 
 		// Get the file contents of the current markdown file.
@@ -1284,10 +1030,10 @@ export default class AutomaticAudioNotes extends Plugin {
 				}
 				let transcript = transcripts.get(audioNote.transcriptFilename);
 				if (transcript === undefined) {
-					transcript = await this.getTranscript(audioNote.transcriptFilename, false);
+					transcript = await this.transcriptDatastore.getTranscript(audioNote.transcriptFilename);
 				}
 
-				const newAudioNoteSrc = this.createAudioNoteSrc(audioNote, transcript, view);
+				const newAudioNoteSrc = audioNote.toSrc(transcript);
 				if (newAudioNoteSrc) {
 					const [srcStart, srcEnd] = this._getAudioNoteStartAndEndPositionInEditor(audioNote);
 					// Perform the replacement.
@@ -1319,7 +1065,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		return [srcStart, srcEnd];
 	}
 
-	async regenerateCurrentAudioNote(view: MarkdownView) {
+	private async regenerateCurrentAudioNote(view: MarkdownView) {
 		new Notice('Regenerating Current Audio Note...');
 
 		// Get the file contents of the current markdown file.
@@ -1361,9 +1107,9 @@ export default class AutomaticAudioNotes extends Plugin {
 		if (!audioNote.transcriptFilename) {
 			return;
 		}
-		let transcript: Transcript | undefined = await this.getTranscript(audioNote.transcriptFilename);
+		let transcript: Transcript | undefined = await this.transcriptDatastore.getTranscript(audioNote.transcriptFilename);
 
-		const newAudioNoteSrc = this.createAudioNoteSrc(audioNote, transcript, view);
+		const newAudioNoteSrc = audioNote.toSrc(transcript);
 		if (newAudioNoteSrc) {
 			const [srcStart, srcEnd] = this._getAudioNoteStartAndEndPositionInEditor(audioNote);
 			// Perform the replacement.
@@ -1377,26 +1123,10 @@ export default class AutomaticAudioNotes extends Plugin {
 		new Notice('Audio Note generation complete!');
 	}
 
-	onunload() {
+	public onunload() {
 		this.knownCurrentTimes.clear();;
 		this.knownAudioPlayers.clear();
 		this.currentlyPlayingAudioFakeUuid = null;
-	}
-
-	async saveCurrentPlayerPosition(audio: HTMLMediaElement | null | undefined): Promise<void> {
-		if (!audio) {
-			audio = this.getCurrentlyPlayerAudioElement();
-		}
-		if (audio) {
-			let data = await this.loadData();
-			if (!data) {
-				data = new Object();
-			}
-			if (!data.positions) {
-				data.positions = new Object();
-			}
-			data.positions[audio.currentSrc] = [audio.currentTime, (new Date()).getTime()];
-			await this.saveData(data);
-		}
+		this.transcriptDatastore.cache.clear();
 	}
 }

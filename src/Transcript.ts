@@ -1,11 +1,60 @@
-import { request } from "obsidian";
+import { Notice, Plugin, request } from "obsidian";
 import { XMLParser } from 'fast-xml-parser';
+import { AudioNotesSettings } from "./AudioNotesSettings";
 
 
 export class Transcript {
     constructor(
         public segments: TranscriptSegment[],
     ) { }
+
+    getQuote(quoteStart: number, quoteEnd: number): [number, number, string] {
+        // Get the relevant part of the transcript.
+        const segments = this.segments;
+        const result = [];
+        let start = undefined;
+        let end = undefined;
+        for (let segment of segments) {
+            const text = segment.text;
+            const segmentStart = segment.start;
+            const segmentEnd = segment.end;
+            // If either the segment's start or end is inside the range specified by the user...
+            if ((quoteStart <= segmentStart && segmentStart < quoteEnd) || (quoteStart < segmentEnd && segmentEnd <= quoteEnd)) {
+                result.push(text);
+                if (start === undefined) {
+                    start = segmentStart;
+                }
+                end = segmentEnd;
+            }
+            // If the range specified by the user is entirely within the segment...
+            if (quoteStart >= segmentStart && quoteEnd <= segmentEnd) {
+                result.push(text);
+                if (start === undefined) {
+                    start = segmentStart;
+                }
+                end = segmentEnd;
+            }
+        }
+        let quoteText = result.join(" ").trim();
+        if (quoteText) {
+            // For some reason double spaces are often in the text. Remove them because they get removed by the HTML rendering anyway.
+            let i = 0;
+            while (quoteText.includes("  ")) {
+                quoteText = quoteText.replace(new RegExp("  "), " ");
+                // Make sure we don't hit an infinite loop, even though it should be impossible.
+                i += 1;
+                if (i > 100) {
+                    break;
+                }
+            }
+        }
+        if (start === undefined || end === undefined) {
+            new Notice("Transcript file does not have start or end times for at least one text entry.");
+            console.error(segments);
+            throw new Error("Transcript file does not have start or end times for at least one text entry.");
+        }
+        return [start, end, quoteText];
+    }
 }
 
 
@@ -211,5 +260,64 @@ class SrtParser {
         }
 
         return new Transcript(segments);
+    }
+}
+
+
+export class TranscriptsCache {
+    cache: Map<string, Transcript> = new Map();
+    constructor(private settings: AudioNotesSettings, private loadFiles: (filenames: string[]) => Promise<Map<string, string>>) { }
+
+    async getTranscript(transcriptFilename: string | undefined): Promise<Transcript | undefined> {
+        if (transcriptFilename === undefined) {
+            return undefined;
+        }
+
+        // Check the cache first.
+        if (this.cache.has(transcriptFilename)) {
+            return this.cache.get(transcriptFilename);
+        }
+
+        let transcriptContents: string | undefined = undefined;
+        let transcript: Transcript | undefined = undefined;
+        // Check if the transcript is a file.
+        if (transcriptFilename.endsWith(".json") || transcriptFilename.endsWith(".srt")) {
+            const translationFilesContents = await this.loadFiles([transcriptFilename]);
+            transcriptContents = translationFilesContents.get(transcriptFilename);
+            if (transcriptContents !== undefined) {
+                transcript = parseTranscript(transcriptContents);
+            }
+        // Check if the transcript is a youtube video's subtitles.
+        } else if (transcriptFilename.includes("youtube.com")) {
+            const urlParts = transcriptFilename.split("?");
+            const urlParams: Map<string, string> = new Map();
+            for (const param of urlParts[1].split("&")) {
+                const [key, value] = param.split("=");
+                urlParams.set(key, value);
+            }
+            const url = `${urlParts[0]}?v=${urlParams.get("v")}`;
+            transcript = await getYouTubeTranscript(url);
+        }
+        // Check if the transcript can be found online.
+        if (transcript === undefined && this.settings.audioNotesApiKey) {
+            transcriptContents = await request({
+                url: 'https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/transcriptions',
+                method: 'GET',
+                headers: {
+                    'x-api-key': this.settings.audioNotesApiKey,
+                    "url": transcriptFilename,
+                },
+                contentType: 'application/json',
+            });
+            if (transcriptContents) {
+                transcript = parseTranscript(transcriptContents);
+            }
+        }
+
+        // Put the result in the cache before returning it.
+        if (transcript) {
+            this.cache.set(transcriptFilename, transcript);
+        }
+        return transcript;
     }
 }
