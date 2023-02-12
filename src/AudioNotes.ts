@@ -85,17 +85,6 @@ export class AudioBlock {
 	}
 }
 
-export class AudioBlockWithCurrentTime extends AudioBlock {
-	constructor(
-		audioFilename: string,
-		start: number,
-		end: number,
-		speed: number,
-		public currentTime: number,
-	) {
-		super(audioFilename, start, end, speed);
-	}
-}
 
 export class AudioNote extends AudioBlock {
 	constructor(
@@ -110,6 +99,7 @@ export class AudioNote extends AudioBlock {
 		public quoteCreatedForEnd: number | undefined,
 		public quote: string | undefined,
 		public extendAudio: boolean,
+		public liveUpdate: boolean,
 	) {
 		super(audioFilename, _start, _end, _speed);
 	}
@@ -124,6 +114,7 @@ export class AudioNote extends AudioBlock {
 		let quoteCreatedForLine = undefined;
 		let quoteLines: string[] = [];
 		let quoteHasStarted = false;
+		let liveUpdate = false;
 		for (const line of lines) {
 			if (quoteHasStarted) {
 				quoteLines.push(line);
@@ -135,6 +126,8 @@ export class AudioNote extends AudioBlock {
 				audioLine = line.split(":").slice(1, undefined).join(":").trim();
 			} else if (line.startsWith("transcript:")) {
 				transcriptFilename = line.split(":").slice(1, undefined).join(":").trim();
+			} else if (line.startsWith("liveUpdate:")) {
+				liveUpdate = line.split(":").slice(1, undefined).join(":").trim() === "true";
 			} else if (line.trim() === "---") {
 				quoteHasStarted = true;
 			}
@@ -173,7 +166,7 @@ export class AudioNote extends AudioBlock {
 			[quoteCreatedForStart, quoteCreatedForEnd,] = getStartAndEndFromBracketString(quoteCreatedForLine);
 		}
 
-		const audioNote = new AudioNote(title, author, audioFilename, start, end, speed, transcriptFilename, quoteCreatedForStart, quoteCreatedForEnd, quote, extendAudio);
+		const audioNote = new AudioNote(title, author, audioFilename, start, end, speed, transcriptFilename, quoteCreatedForStart, quoteCreatedForEnd, quote, extendAudio, liveUpdate);
 		return audioNote;
 	}
 
@@ -225,6 +218,9 @@ export class AudioNote extends AudioBlock {
 		newAudioNoteText += `transcript: ${this.transcriptFilename}\n`;
 		if (this.author) {
 			newAudioNoteText += `author: ${this.author}\n`;
+		}
+		if (this.liveUpdate) {
+			newAudioNoteText += `liveUpdate: true\n`;
 		}
 		newAudioNoteText += `---\n`;
 		newAudioNoteText += `${newQuote}`;
@@ -291,10 +287,11 @@ export class AudioNoteWithPositionInfo extends AudioNote {
 		public quoteCreatedForEnd: number | undefined,
 		public quote: string | undefined,
 		public extendAudio: boolean,
+		public liveUpdate: boolean,
 		public startLineNumber: number,
 		public endLineNumber: number,
 		public endChNumber: number,
-	) { super(title, author, audioFilename, _start, _end, _speed, transcriptFilename, quoteCreatedForStart, quoteCreatedForEnd, quote, extendAudio); }
+	) { super(title, author, audioFilename, _start, _end, _speed, transcriptFilename, quoteCreatedForStart, quoteCreatedForEnd, quote, extendAudio, liveUpdate); }
 
 	static fromAudioNote(audioNote: AudioNote, startLineNumber: number, endLineNumber: number, endChNumber: number): AudioNoteWithPositionInfo {
 		return new AudioNoteWithPositionInfo(
@@ -309,6 +306,7 @@ export class AudioNoteWithPositionInfo extends AudioNote {
 			audioNote.quoteCreatedForEnd,
 			audioNote.quote,
 			audioNote.extendAudio,
+			audioNote.liveUpdate,
 			startLineNumber,
 			endLineNumber,
 			endChNumber,

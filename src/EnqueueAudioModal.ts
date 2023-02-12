@@ -1,16 +1,6 @@
 import { Modal, App, Setting, Notice, request } from "obsidian";
+import { ApiKeyInfo } from "./AudioNotesSettings";
 import { WHISPER_LANGUAGE_CODES } from "./utils";
-
-
-export class ApiKeyInfo {
-	constructor(
-		public api_key: string,
-		public paying: boolean,
-		public tier: string,
-		public queued: string[],
-		public transcripts: string[],
-	) { }
-}
 
 
 export class EnqueueAudioModal extends Modal {

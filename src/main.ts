@@ -7,16 +7,17 @@ import {
 	Platform,
 	request,
 	WorkspaceLeaf,
+	MarkdownRenderer,
 } from 'obsidian';
 
 // Local imports
 import { monkeyPatchConsole } from './monkeyPatchConsole';
 import { CreateNewAudioNoteInNewFileModal } from './CreateNewAudioNoteInNewFileModal';
 import { EnqueueAudioModal } from './EnqueueAudioModal';
-import { generateRandomString, getIcon, secondsToTimeString, getUniqueId, renderMarkdown } from './utils';
+import { generateRandomString, getIcon, secondsToTimeString, getUniqueId } from './utils';
 import { AudioNotesSettings, AudioNotesSettingsTab } from './AudioNotesSettings';
 import { AudioElementCache, AudioNote, AudioNoteWithPositionInfo, getAudioPlayerIdentify, getStartAndEndFromBracketString } from './AudioNotes';
-import { Transcript, parseTranscript, TranscriptsCache } from './Transcript';
+import { Transcript, parseTranscript, TranscriptsCache, TranscriptSegment } from './Transcript';
 
 // Load Font-Awesome stuff
 import { library } from "@fortawesome/fontawesome-svg-core";
@@ -144,7 +145,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		}
 
 		// Create the TranscriptsCache
-		this.transcriptDatastore = new TranscriptsCache(this.settings, this.loadFiles);
+		this.transcriptDatastore = new TranscriptsCache(this.settings, this.loadFiles.bind(this));
 
 		// Log to log.txt file if on mobile and debugging mode is enabled.
 		if (!this.isDesktop && this.settings.debugMode) {
@@ -245,7 +246,7 @@ export default class AutomaticAudioNotes extends Plugin {
 										currentTime - this.settings.plusMinusDuration, currentTime + this.settings.plusMinusDuration, 1.0,
 										url,
 										undefined, undefined, undefined,
-										false
+										false, false
 									);
 									this.createNewAudioNoteAtEndOfFile(markdownView, audioNote).catch((error) => {
 										console.error(`Audio Notes: ${error}`);
@@ -531,18 +532,21 @@ export default class AutomaticAudioNotes extends Plugin {
 		}
 		const formattedTitle = audioNote.getFormattedTitle();
 		const titleInnerEl = titleEl.createDiv("audio-note-title-inner");
-		renderMarkdown(titleEl, titleInnerEl, currentMdFilename, undefined, formattedTitle);
+		MarkdownRenderer.renderMarkdown(formattedTitle, titleInnerEl, currentMdFilename, this);
+		// The below if statement is useful because it takes the rendered text and inserts it directly into
+		// the title component as the `titleInnerEl.textContent`. If we just set the `.textContent` directly,
+		// the markdown text doesn't get rendered properly.
 		if (titleInnerEl.firstElementChild && titleInnerEl.firstElementChild instanceof HTMLParagraphElement) {
 			titleInnerEl.setChildrenInPlace(Array.from(titleInnerEl.firstElementChild.childNodes));
 		}
 
 		// Add the quote to the div.
 		const contentEl: HTMLDivElement = calloutDiv.createDiv("callout-content");
-		let text = "";
 		if (audioNote.quote) {
-			text += audioNote.quote;
+			MarkdownRenderer.renderMarkdown(audioNote.quote, contentEl, currentMdFilename, this);
+		} else {
+			contentEl.createEl("p"); // This won't get created if the quote is `""`, so we need to create it automatically for the liveUpdate to populate it.
 		}
-		renderMarkdown(calloutDiv, contentEl, currentMdFilename, ctx, audioNote.quote || "")
 
 		// Add the author to the div.
 		if (audioNote.author) {
@@ -552,23 +556,65 @@ export default class AutomaticAudioNotes extends Plugin {
 				authorStr = `\\${authorStr}`; // prepend a \ to escape the - so it does turn into a bullet point when the HTML renders
 			}
 			const authorInnerEl = authorEl.createDiv("audio-note-author");
-			renderMarkdown(authorEl, authorInnerEl, currentMdFilename, undefined, authorStr);
-			if (authorInnerEl.firstElementChild) {
-				authorInnerEl.setChildrenInPlace(Array.from(authorInnerEl.firstElementChild.childNodes));
-			}
+			MarkdownRenderer.renderMarkdown(authorStr, authorInnerEl, currentMdFilename, this);
 		}
 
 		// Create the audio player div.
 		if (!audioNote.audioFilename.includes("youtube.com")) {
-			const audioDiv = this._createAudioPlayerDiv(audioNote);
-			if (audioDiv === undefined) {
+			const [audio, audioDiv] = this._createAudioPlayerDiv(audioNote);
+			if (audioDiv === undefined || audio === undefined) {
 				return calloutDiv;
 			}
 			calloutDiv.appendChild(audioDiv);
-			renderMarkdown(calloutDiv, audioDiv, currentMdFilename, ctx, ``);
+			MarkdownRenderer.renderMarkdown(``, calloutDiv, currentMdFilename, this);
+
+			// Enable Live Update. This has to be here because we need access to both the HTML quote element and the audio div.
+			if (audioNote.liveUpdate) {
+				audio.addEventListener('play', () => {
+					this.liveUpdateTranscript(contentEl.firstChild as HTMLParagraphElement, audioNote, audio);
+				});
+			}
 		}
 
 		return calloutDiv;
+	}
+
+	private liveUpdateTranscript(quoteEl: HTMLParagraphElement, audioNote: AudioNote, audioPlayer: HTMLMediaElement) {
+		this.transcriptDatastore.getTranscript(audioNote.transcriptFilename).then((transcript: Transcript | undefined) => {
+			if (transcript) {
+				const currentTime = audioPlayer.currentTime;
+				const [i, segment] = transcript.getSegmentAt(currentTime);
+				if (i && segment) {
+					quoteEl.textContent = segment.text;
+
+					// Make a new callback
+					const makeCallback = (transcript: Transcript, i: number) => {
+						const nextSegment = transcript.segments[i + 1]; // returns `undefined` if index is out of range
+						if (nextSegment !== undefined) {
+							const callback = () => {
+								if (audioPlayer.currentTime >= nextSegment.start) {
+									quoteEl.textContent = nextSegment.text;
+									audioPlayer.removeEventListener('timeupdate', callback);
+									const newCallback = makeCallback(transcript, i + 1);
+									if (newCallback) {
+										newCallback();
+									}
+								}
+							};
+							audioPlayer.addEventListener('timeupdate', callback)
+							return callback;
+						}
+						return undefined;
+					}
+
+					const newCallback = makeCallback(transcript, i);
+					if (newCallback) {
+						newCallback();
+					}
+
+				} // end of if (i && segment) statement
+			}
+		});
 	}
 
 	/**
@@ -602,12 +648,12 @@ export default class AutomaticAudioNotes extends Plugin {
 	/**
 	 * Render the custom audio player itself, and hook up all the buttons to perform the correct functionality.
 	 */
-	private _createAudioPlayerDiv(audioNote: AudioNote): HTMLElement | undefined {
+	private _createAudioPlayerDiv(audioNote: AudioNote): [HTMLMediaElement | undefined, HTMLElement | undefined] {
 		const fakeUuid: string = generateRandomString(8);
 
 		const audioSrcPath = this._getFullAudioSrcPath(audioNote);
 		if (!audioSrcPath) {
-			return undefined;
+			return [undefined, undefined];
 		}
 
 		const audio = new Audio(audioSrcPath);
@@ -909,7 +955,7 @@ export default class AutomaticAudioNotes extends Plugin {
 			audioPlayerContainer.appendChild(forwardButton);
 			audioPlayerContainer.appendChild(resetTimeButton);
 			audioPlayerContainer.appendChild(muteButton);
-			return audioPlayerContainer;
+			return [audio, audioPlayerContainer];
 		} else { // mobile
 			audioPlayerContainerClasses += " audio-player-container-mobile"
 			const audioPlayerContainer = createDiv({ attr: { id: `audio-player-container-${fakeUuid}` }, cls: audioPlayerContainerClasses })
@@ -925,7 +971,7 @@ export default class AutomaticAudioNotes extends Plugin {
 			topDiv.appendChild(muteButton);
 			audioPlayerContainer.appendChild(topDiv);
 			audioPlayerContainer.appendChild(bottomDiv);
-			return audioPlayerContainer;
+			return [audio, audioPlayerContainer];
 		}
 	}
 

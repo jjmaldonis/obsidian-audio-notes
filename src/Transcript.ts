@@ -8,7 +8,7 @@ export class Transcript {
         public segments: TranscriptSegment[],
     ) { }
 
-    getQuote(quoteStart: number, quoteEnd: number): [number, number, string] {
+    public getQuote(quoteStart: number, quoteEnd: number): [number, number, string] {
         // Get the relevant part of the transcript.
         const segments = this.segments;
         const result = [];
@@ -55,6 +55,16 @@ export class Transcript {
         }
         return [start, end, quoteText];
     }
+
+    public getSegmentAt(time: number): [number | undefined, TranscriptSegment | undefined] {
+        for (let i = 0; i < this.segments.length; i++) {
+            const segment = this.segments[i];
+            if (segment.start <= time && time < segment.end) {
+                return [i, segment];
+            }
+        }
+        return [undefined, undefined]; // if not found
+    }
 }
 
 
@@ -71,7 +81,7 @@ export class TranscriptSegment {
 export function parseTranscript(contents: string): Transcript {
     // We don't always have a filename (e.g. if the transcript was pulled from online). Assume JSON, and fallback to SRT.
     try {
-        return JSON.parse(contents) as Transcript;
+        return new Transcript(JSON.parse(contents).segments);
     } catch {
         return new SrtParser().fromSrt(contents);
     }
