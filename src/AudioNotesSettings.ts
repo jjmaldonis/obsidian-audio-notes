@@ -1,7 +1,13 @@
 import AutomaticAudioNotes from "./main";
-import { PluginSettingTab, Setting, Notice, ToggleComponent, request, App } from "obsidian";
+import {
+	PluginSettingTab,
+	Setting,
+	Notice,
+	ToggleComponent,
+	request,
+	App,
+} from "obsidian";
 import { secondsToTimeString } from "./utils";
-
 
 export class ApiKeyInfo {
 	constructor(
@@ -9,10 +15,9 @@ export class ApiKeyInfo {
 		public paying: boolean,
 		public tier: string,
 		public queued: string[],
-		public transcripts: string[],
-	) { }
+		public transcripts: string[]
+	) {}
 }
-
 
 export class AudioNotesSettingsTab extends PluginSettingTab {
 	plugin: AutomaticAudioNotes;
@@ -29,7 +34,9 @@ export class AudioNotesSettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("+/- duration (seconds) when generating new notes")
-			.setDesc("The amount of time add to and subtract from the current time when creating new audio notes")
+			.setDesc(
+				"The amount of time add to and subtract from the current time when creating new audio notes"
+			)
 			.addText((text) =>
 				text
 					.setPlaceholder("30")
@@ -47,7 +54,9 @@ export class AudioNotesSettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Skip backward (seconds)")
-			.setDesc("The amount of time to skip backward when pressing the backward button on the audio player")
+			.setDesc(
+				"The amount of time to skip backward when pressing the backward button on the audio player"
+			)
 			.addText((text) =>
 				text
 					.setPlaceholder("5")
@@ -65,7 +74,9 @@ export class AudioNotesSettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Skip forward (seconds)")
-			.setDesc("The amount of time to skip forward when pressing the forward button on the audio player")
+			.setDesc(
+				"The amount of time to skip forward when pressing the forward button on the audio player"
+			)
 			.addText((text) =>
 				text
 					.setPlaceholder("15")
@@ -82,20 +93,25 @@ export class AudioNotesSettingsTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName('Audio Notes API Key')
-			.setDesc('Provided by the library maintainer to work with transcripts online. Go to github.com/jjmaldonis/obsidian-audio-notes for info about how to join the early beta.')
+			.setName("Audio Notes API Key")
+			.setDesc(
+				"Provided by the library maintainer to work with transcripts online. Go to github.com/jjmaldonis/obsidian-audio-notes for info about how to join the early beta."
+			)
 			.addText((text) =>
 				text
-					.setPlaceholder('<your api key>')
+					.setPlaceholder("<your api key>")
 					.setValue(this.plugin.settings.audioNotesApiKey)
 					.onChange(async (value) => {
 						this.plugin.settings.audioNotesApiKey = value;
 						await this.plugin.saveSettings();
-					}));
+					})
+			);
 
 		new Setting(containerEl)
-			.setName('Debugging mode')
-			.setDesc('Turn on to log console messages to log.txt in the plugin folder (requires restart).')
+			.setName("Debugging mode")
+			.setDesc(
+				"Turn on to log console messages to log.txt in the plugin folder (requires restart)."
+			)
 			.addToggle((toggle: ToggleComponent) => {
 				toggle.onChange(async (value: boolean) => {
 					this.plugin.settings.debugMode = value;
@@ -103,51 +119,73 @@ export class AudioNotesSettingsTab extends PluginSettingTab {
 				});
 			});
 
+		containerEl.createEl("h2", {
+			text: "Deepgram Settings",
+		});
+		new Setting(containerEl)
+			.setName("Deepgram API Key")
+			.setDesc(
+				"Visit https://console.deepgram.com/signup to get your API key."
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder("Enter your API key here...")
+					.setValue(this.plugin.settings.DGApiKey)
+					.onChange(async (value) => {
+						this.plugin.settings.DGApiKey = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
 		containerEl.createEl("hr");
-		containerEl.createDiv("p").textContent = `MP3 files added for transcription:`;
+		containerEl.createDiv(
+			"p"
+		).textContent = `MP3 files added for transcription:`;
 		request({
-			url: 'https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/users/files',
-			method: 'GET',
+			url: "https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/users/files",
+			method: "GET",
 			headers: {
-				'x-api-key': this.plugin.settings.audioNotesApiKey,
+				"x-api-key": this.plugin.settings.audioNotesApiKey,
 			},
-			contentType: 'application/json',
+			contentType: "application/json",
 		}).then((result: string) => {
 			const urls: [string, string][] = JSON.parse(result);
 			if (urls.length > 0) {
 				const table = containerEl.createEl("table");
-				const tr = table.createEl("tr")
+				const tr = table.createEl("tr");
 				tr.createEl("th").textContent = "Status";
 				tr.createEl("th").textContent = "Length";
 				tr.createEl("th").textContent = "URL";
 				for (let i = 0; i < urls.length; i++) {
 					const [url, status] = urls[i];
-					const tr = table.createEl("tr")
+					const tr = table.createEl("tr");
 					tr.createEl("td").textContent = status;
 					const lengthTd = tr.createEl("td");
 					lengthTd.textContent = "???";
 					tr.createEl("td").textContent = url;
 
 					request({
-						url: 'https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/transcriptions',
-						method: 'GET',
+						url: "https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/transcriptions",
+						method: "GET",
 						headers: {
-							'x-api-key': this.plugin.settings.audioNotesApiKey,
-							"url": url,
+							"x-api-key": this.plugin.settings.audioNotesApiKey,
+							url: url,
 						},
-						contentType: 'application/json',
+						contentType: "application/json",
 					}).then((result: string) => {
 						const transcript = JSON.parse(result);
-						const lastSegment = transcript.segments[transcript.segments.length - 1];
-						lengthTd.textContent = secondsToTimeString(lastSegment.end, true);
+						const lastSegment =
+							transcript.segments[transcript.segments.length - 1];
+						lengthTd.textContent = secondsToTimeString(
+							lastSegment.end,
+							true
+						);
 					});
-
 				}
 			}
 		});
 	}
 }
-
 
 export interface StringifiedAudioNotesSettings {
 	plusMinusDuration: string;
@@ -155,6 +193,7 @@ export interface StringifiedAudioNotesSettings {
 	forwardStep: string;
 	audioNotesApiKey: string;
 	debugMode: boolean;
+	DGApiKey: string;
 }
 
 const DEFAULT_SETTINGS: StringifiedAudioNotesSettings = {
@@ -163,6 +202,7 @@ const DEFAULT_SETTINGS: StringifiedAudioNotesSettings = {
 	forwardStep: "15",
 	audioNotesApiKey: "",
 	debugMode: false,
+	DGApiKey: "",
 };
 
 export class AudioNotesSettings {
@@ -171,8 +211,9 @@ export class AudioNotesSettings {
 		private _backwardStep: number,
 		private _forwardStep: number,
 		private _audioNotesApiKey: string,
-		private _debugMode: boolean
-	) { }
+		private _debugMode: boolean,
+		private _DGApiKey: string
+	) {}
 
 	static fromDefaultSettings(): AudioNotesSettings {
 		return new AudioNotesSettings(
@@ -181,12 +222,22 @@ export class AudioNotesSettings {
 			parseFloat(DEFAULT_SETTINGS.forwardStep),
 			DEFAULT_SETTINGS.audioNotesApiKey,
 			DEFAULT_SETTINGS.debugMode,
+			DEFAULT_SETTINGS.DGApiKey
 		);
 	}
 
-	static overrideDefaultSettings(data: StringifiedAudioNotesSettings): AudioNotesSettings {
+	static overrideDefaultSettings(
+		data: StringifiedAudioNotesSettings
+	): AudioNotesSettings {
+		console.log("overrideDefaultSettings", data);
 		const settings = AudioNotesSettings.fromDefaultSettings();
-		if (data.plusMinusDuration !== null && data.plusMinusDuration !== undefined) {
+		if (!data) {
+			return settings;
+		}
+		if (
+			data.plusMinusDuration !== null &&
+			data.plusMinusDuration !== undefined
+		) {
 			settings.plusMinusDuration = data.plusMinusDuration!;
 		}
 		if (data.backwardStep !== null && data.backwardStep !== undefined) {
@@ -195,11 +246,17 @@ export class AudioNotesSettings {
 		if (data.forwardStep !== null && data.forwardStep !== undefined) {
 			settings.forwardStep = data.forwardStep!;
 		}
-		if (data.audioNotesApiKey !== null && data.audioNotesApiKey !== undefined) {
+		if (
+			data.audioNotesApiKey !== null &&
+			data.audioNotesApiKey !== undefined
+		) {
 			settings.audioNotesApiKey = data.audioNotesApiKey!;
 		}
 		if (data.debugMode !== null && data.debugMode !== undefined) {
 			settings.debugMode = data.debugMode!;
+		}
+		if (data.DGApiKey !== null && data.DGApiKey !== undefined) {
+			settings.DGApiKey = data.DGApiKey!;
 		}
 		return settings;
 	}
@@ -253,16 +310,24 @@ export class AudioNotesSettings {
 		this._debugMode = value;
 	}
 
+	get DGApiKey(): string {
+		return this._DGApiKey;
+	}
+
+	set DGApiKey(value: string) {
+		this._DGApiKey = value;
+	}
+
 	async getInfoByApiKey(): Promise<ApiKeyInfo | undefined> {
 		const apiKey = this.audioNotesApiKey;
 		if (apiKey) {
 			const infoString: string = await request({
-				url: 'https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/users/byapikey',
-				method: 'GET',
+				url: "https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/users/byapikey",
+				method: "GET",
 				headers: {
-					'x-api-key': this.audioNotesApiKey,
+					"x-api-key": this.audioNotesApiKey,
 				},
-				contentType: 'application/json',
+				contentType: "application/json",
 			});
 			return JSON.parse(infoString) as ApiKeyInfo;
 		} else {
