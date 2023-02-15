@@ -136,54 +136,71 @@ export class AudioNotesSettingsTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
+		new Setting(containerEl)
+			.setName("Show Deepgram Logo")
+			.setDesc(
+				"Show the Deepgram logo on the bottom of the note. (requires restart)"
+			)
+			.addToggle((toggle: ToggleComponent) => {
+				toggle.onChange(async (value: boolean) => {
+					this.plugin.settings.showDeepgramLogo = value;
+					await this.plugin.saveSettings();
+				});
+				toggle.setValue(this.plugin.settings.showDeepgramLogo);
+			});
 
 		containerEl.createEl("hr");
 		containerEl.createDiv(
 			"p"
 		).textContent = `MP3 files added for transcription:`;
-		request({
-			url: "https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/users/files",
-			method: "GET",
-			headers: {
-				"x-api-key": this.plugin.settings.audioNotesApiKey,
-			},
-			contentType: "application/json",
-		}).then((result: string) => {
-			const urls: [string, string][] = JSON.parse(result);
-			if (urls.length > 0) {
-				const table = containerEl.createEl("table");
-				const tr = table.createEl("tr");
-				tr.createEl("th").textContent = "Status";
-				tr.createEl("th").textContent = "Length";
-				tr.createEl("th").textContent = "URL";
-				for (let i = 0; i < urls.length; i++) {
-					const [url, status] = urls[i];
+		if (this.plugin.settings.audioNotesApiKey) {
+			request({
+				url: "https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/users/files",
+				method: "GET",
+				headers: {
+					"x-api-key": this.plugin.settings.audioNotesApiKey,
+				},
+				contentType: "application/json",
+			}).then((result: string) => {
+				const urls: [string, string][] = JSON.parse(result);
+				if (urls.length > 0) {
+					const table = containerEl.createEl("table");
 					const tr = table.createEl("tr");
-					tr.createEl("td").textContent = status;
-					const lengthTd = tr.createEl("td");
-					lengthTd.textContent = "???";
-					tr.createEl("td").textContent = url;
+					tr.createEl("th").textContent = "Status";
+					tr.createEl("th").textContent = "Length";
+					tr.createEl("th").textContent = "URL";
+					for (let i = 0; i < urls.length; i++) {
+						const [url, status] = urls[i];
+						const tr = table.createEl("tr");
+						tr.createEl("td").textContent = status;
+						const lengthTd = tr.createEl("td");
+						lengthTd.textContent = "???";
+						tr.createEl("td").textContent = url;
 
-					request({
-						url: "https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/transcriptions",
-						method: "GET",
-						headers: {
-							"x-api-key": this.plugin.settings.audioNotesApiKey,
-							url: url,
-						},
-						contentType: "application/json",
-					}).then((result: string) => {
-						const transcript = JSON.parse(result);
-						const lastSegment =
-							transcript.segments[transcript.segments.length - 1];
-						lengthTd.textContent = secondsToTimeString(
-							lastSegment.end,
-							true
-						);
-					});
+						request({
+							url: "https://iszrj6j2vk.execute-api.us-east-1.amazonaws.com/prod/transcriptions",
+							method: "GET",
+							headers: {
+								"x-api-key":
+									this.plugin.settings.audioNotesApiKey,
+								url: url,
+							},
+							contentType: "application/json",
+						}).then((result: string) => {
+							const transcript = JSON.parse(result);
+							const lastSegment =
+								transcript.segments[
+									transcript.segments.length - 1
+								];
+							lengthTd.textContent = secondsToTimeString(
+								lastSegment.end,
+								true
+							);
+						});
+					}
 				}
-			}
-		});
+			});
+		}
 	}
 }
 
@@ -194,6 +211,7 @@ export interface StringifiedAudioNotesSettings {
 	audioNotesApiKey: string;
 	debugMode: boolean;
 	DGApiKey: string;
+	showDeepgramLogo: boolean;
 }
 
 const DEFAULT_SETTINGS: StringifiedAudioNotesSettings = {
@@ -203,6 +221,7 @@ const DEFAULT_SETTINGS: StringifiedAudioNotesSettings = {
 	audioNotesApiKey: "",
 	debugMode: false,
 	DGApiKey: "",
+	showDeepgramLogo: true,
 };
 
 export class AudioNotesSettings {
@@ -212,7 +231,8 @@ export class AudioNotesSettings {
 		private _forwardStep: number,
 		private _audioNotesApiKey: string,
 		private _debugMode: boolean,
-		private _DGApiKey: string
+		private _DGApiKey: string,
+		private _showDeepgramLogo: boolean
 	) {}
 
 	static fromDefaultSettings(): AudioNotesSettings {
@@ -222,14 +242,14 @@ export class AudioNotesSettings {
 			parseFloat(DEFAULT_SETTINGS.forwardStep),
 			DEFAULT_SETTINGS.audioNotesApiKey,
 			DEFAULT_SETTINGS.debugMode,
-			DEFAULT_SETTINGS.DGApiKey
+			DEFAULT_SETTINGS.DGApiKey,
+			DEFAULT_SETTINGS.showDeepgramLogo
 		);
 	}
 
 	static overrideDefaultSettings(
-		data: StringifiedAudioNotesSettings
+		data: AudioNotesSettings
 	): AudioNotesSettings {
-		console.log("overrideDefaultSettings", data);
 		const settings = AudioNotesSettings.fromDefaultSettings();
 		if (!data) {
 			return settings;
@@ -257,6 +277,12 @@ export class AudioNotesSettings {
 		}
 		if (data.DGApiKey !== null && data.DGApiKey !== undefined) {
 			settings.DGApiKey = data.DGApiKey!;
+		}
+		if (
+			data.showDeepgramLogo !== null &&
+			data.showDeepgramLogo !== undefined
+		) {
+			settings.showDeepgramLogo = data.showDeepgramLogo!;
 		}
 		return settings;
 	}
@@ -316,6 +342,14 @@ export class AudioNotesSettings {
 
 	set DGApiKey(value: string) {
 		this._DGApiKey = value;
+	}
+
+	get showDeepgramLogo(): boolean {
+		return this._showDeepgramLogo;
+	}
+
+	set showDeepgramLogo(value: boolean) {
+		this._showDeepgramLogo = value;
 	}
 
 	async getInfoByApiKey(): Promise<ApiKeyInfo | undefined> {

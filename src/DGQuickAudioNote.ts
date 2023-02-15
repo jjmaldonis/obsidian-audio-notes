@@ -28,7 +28,8 @@ export function getFullPath(path: string): string | undefined {
 export function QuickNotePostProcessor(
 	src: string,
 	el: HTMLElement,
-	ctx?: MarkdownPostProcessorContext
+	ctx?: MarkdownPostProcessorContext,
+	showLogo?: boolean
 ) {
 	const noteObj = {} as BaseAudioNote;
 	const lines = src.split(/\r?\n/);
@@ -54,9 +55,14 @@ export function QuickNotePostProcessor(
 	otherAudio.loop = false;
 	div.appendChild(otherAudio);
 	const poweredBy = div.createEl("a", {
-		cls: "dg-audio-note-powered-by",
+		cls: `dg-audio-note-powered-by ${showLogo ? "" : "hidden"}`,
 		href: "https://deepgram.com",
 	});
+	const logo = poweredBy.createEl("img", {
+		cls: "dg-audio-note-logo theme-light",
+	});
+	logo.src =
+		"https://res.cloudinary.com/deepgram/image/upload/v1676406242/blog/DG-powered-by-logo-black-red-horizontal-rgb_wqhltl.svg";
 
 	const transcriptEl = div.createEl("p", {
 		cls: "dg-audio-note-transcript",

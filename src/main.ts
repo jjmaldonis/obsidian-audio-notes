@@ -61,12 +61,24 @@ export default class AutomaticAudioNotes extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = AudioNotesSettings.overrideDefaultSettings(
-			await this.loadData()
+		const loadedData = await this.loadData();
+		console.log("Loaded data: ", loadedData);
+		const newSettings = new AudioNotesSettings(
+			parseFloat(loadedData["_plusMinusDuration"]),
+			parseFloat(loadedData["_backwardStep"]),
+			parseFloat(loadedData["_forwardStep"]),
+			loadedData["_audioNotesApiKey"],
+			loadedData["_debugMode"],
+			loadedData["_DGApiKey"],
+			loadedData["_showDeepgramLogo"]
 		);
+		console.log("New settings: ", newSettings);
+		this.settings = AudioNotesSettings.overrideDefaultSettings(newSettings);
+		console.log("Loaded settings: ", this.settings);
 	}
 
 	async saveSettings() {
+		console.log("Saving settings: ", this.settings);
 		await this.saveData(this.settings);
 	}
 
@@ -568,9 +580,21 @@ export default class AutomaticAudioNotes extends Plugin {
 		this.registerMarkdownCodeBlockProcessor(`audio-note`, (src, el, ctx) =>
 			this.postprocessor(src, el, ctx)
 		);
+
 		this.registerMarkdownCodeBlockProcessor(
 			`dg-audio-note`,
-			(src, el, ctx) => QuickNotePostProcessor(src, el, ctx)
+			(src, el, ctx) => {
+				console.log(
+					"Showing Deepgram logo",
+					this.settings.showDeepgramLogo
+				);
+				return QuickNotePostProcessor(
+					src,
+					el,
+					ctx,
+					this.settings.showDeepgramLogo
+				);
+			}
 		);
 		// Done!
 		console.log("Audio Notes: Obsidian Audio Notes loaded");

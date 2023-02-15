@@ -437,13 +437,27 @@ input.title-input {
 }
 
 .dg-audio-note-powered-by {
-	background-image: url("https://res.cloudinary.com/deepgram/image/upload/v1676406242/blog/DG-powered-by-logo-black-red-horizontal-rgb_wqhltl.svg");
-	height: 20px;
-	background-size: contain;
+	/* background-image: url("https://res.cloudinary.com/deepgram/image/upload/v1676406242/blog/DG-powered-by-logo-black-red-horizontal-rgb_wqhltl.svg"); */
+	/* height: 20px; */
+	width: auto;
+
+	/* background-size: contain; */
 	margin-left: auto;
-	background-repeat: no-repeat;
-	background-position: right;
-	display: inherit;
+	/* background-repeat: no-repeat;
+	background-position: right; */
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+.dg-audio-note-logo.theme-light {
+	background-color: whitesmoke;
+	height: 20px;
+	width: auto;
+	margin-left: auto;
+}
+
+.dg-audio-note-powered-by.hidden {
+	display: none;
 }
 
 /* END DG Quick Audio Note */
