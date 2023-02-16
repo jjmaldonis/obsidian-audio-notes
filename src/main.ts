@@ -41,7 +41,7 @@ export default class AutomaticAudioNotes extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = AudioNotesSettings.overrideDefaultSettings(await this.loadData());
+		this.settings = AudioNotesSettings.overrideDefaultSettings(await this.loadData() || new Object());
 	}
 
 	async saveSettings() {
