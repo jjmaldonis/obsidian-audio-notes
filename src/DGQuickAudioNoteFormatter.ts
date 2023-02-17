@@ -1,4 +1,4 @@
-import { MarkdownPostProcessorContext, TFile } from "obsidian";
+import type { MarkdownPostProcessorContext, TFile } from "obsidian";
 
 export interface BaseAudioNote {
 	title: string;
@@ -31,6 +31,7 @@ export function QuickNotePostProcessor(
 	ctx?: MarkdownPostProcessorContext,
 	showLogo?: boolean
 ) {
+	console.log("src", src);
 	const noteObj = {} as BaseAudioNote;
 	const lines = src.split(/\r?\n/);
 	for (let line of lines) {

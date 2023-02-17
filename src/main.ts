@@ -11,8 +11,8 @@ import {
 } from "obsidian";
 
 // Local imports
-import { QuickNotePostProcessor } from "./DGQuickAudioNote";
-import { DGAudioModal } from "./DGAudioTranscribeModal";
+import { QuickNotePostProcessor } from "./DGQuickAudioNoteFormatter";
+import { DGQuickNoteModal } from "./DGQuickNoteModal";
 import { monkeyPatchConsole } from "./monkeyPatchConsole";
 import { CreateNewAudioNoteInNewFileModal } from "./CreateNewAudioNoteInNewFileModal";
 import { EnqueueAudioModal } from "./EnqueueAudioModal";
@@ -45,6 +45,7 @@ import { library } from "@fortawesome/fontawesome-svg-core";
 import { faCopy, far } from "@fortawesome/free-regular-svg-icons";
 import { fas } from "@fortawesome/free-solid-svg-icons";
 import { fab } from "@fortawesome/free-brands-svg-icons";
+import DgQuickAudioNote from "./DGQuickAudioNote.svelte";
 // Load the actual library so the icons render.
 library.add(fas, far, fab, faCopy);
 
@@ -72,13 +73,10 @@ export default class AutomaticAudioNotes extends Plugin {
 			loadedData["_DGApiKey"],
 			loadedData["_showDeepgramLogo"]
 		);
-		console.log("New settings: ", newSettings);
 		this.settings = AudioNotesSettings.overrideDefaultSettings(newSettings);
-		console.log("Loaded settings: ", this.settings);
 	}
 
 	async saveSettings() {
-		console.log("Saving settings: ", this.settings);
 		await this.saveData(this.settings);
 	}
 
@@ -191,7 +189,7 @@ export default class AutomaticAudioNotes extends Plugin {
 						"Please set your Deepgram API key in the settings tab."
 					);
 				} else {
-					new DGAudioModal(this).open();
+					new DGQuickNoteModal(this).open();
 				}
 			}
 		);
@@ -584,10 +582,6 @@ export default class AutomaticAudioNotes extends Plugin {
 		this.registerMarkdownCodeBlockProcessor(
 			`dg-audio-note`,
 			(src, el, ctx) => {
-				console.log(
-					"Showing Deepgram logo",
-					this.settings.showDeepgramLogo
-				);
 				return QuickNotePostProcessor(
 					src,
 					el,

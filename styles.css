@@ -460,4 +460,13 @@ input.title-input {
 	display: none;
 }
 
+.dg-quick-note-modal {
+	--dialog-width: 75vw;
+	height: auto;
+	--dialog-max-height: 75vh;
+}
+.info svg {
+	width: 11px;
+	margin-left: 3px;
+}
 /* END DG Quick Audio Note */

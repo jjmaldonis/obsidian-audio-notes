@@ -124,9 +124,7 @@ export class AudioNotesSettingsTab extends PluginSettingTab {
 		});
 		new Setting(containerEl)
 			.setName("Deepgram API Key")
-			.setDesc(
-				"Visit https://console.deepgram.com/signup to get your API key."
-			)
+			.setDesc("Visit https://dpgr.am/obsidian to get your free API key.")
 			.addText((text) =>
 				text
 					.setPlaceholder("Enter your API key here...")
