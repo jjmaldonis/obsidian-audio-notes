@@ -62,6 +62,7 @@ export default class AutomaticAudioNotes extends Plugin {
 	}
 
 	async loadSettings() {
+
 		const loadedData = await this.loadData();
 		console.log("Loaded data: ", loadedData);
 		const newSettings = new AudioNotesSettings(
@@ -74,6 +75,7 @@ export default class AutomaticAudioNotes extends Plugin {
 			loadedData["_showDeepgramLogo"]
 		);
 		this.settings = AudioNotesSettings.overrideDefaultSettings(newSettings);
+
 	}
 
 	async saveSettings() {
