@@ -1,6 +1,6 @@
 import { findIconDefinition, icon as getFAIcon } from "@fortawesome/fontawesome-svg-core";
 import type { IconName } from "@fortawesome/fontawesome-svg-core";
-import { IconPrefix } from "@fortawesome/free-regular-svg-icons";
+import type { IconPrefix } from "@fortawesome/free-regular-svg-icons";
 
 
 export class DefaultMap<K, V> extends Map<K, V> {

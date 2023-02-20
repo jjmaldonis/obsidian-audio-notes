@@ -31,7 +31,6 @@ export function QuickNotePostProcessor(
 	ctx?: MarkdownPostProcessorContext,
 	showLogo?: boolean
 ) {
-	console.log("src", src);
 	const noteObj = {} as BaseAudioNote;
 	const lines = src.split(/\r?\n/);
 	for (let line of lines) {

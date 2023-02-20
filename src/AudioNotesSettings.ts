@@ -1,4 +1,4 @@
-import AutomaticAudioNotes from "./main";
+import type AutomaticAudioNotes from "./main";
 import {
 	PluginSettingTab,
 	Setting,

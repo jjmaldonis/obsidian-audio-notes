@@ -1,5 +1,5 @@
 import { Modal, App, Setting, Notice, request } from "obsidian";
-import { ApiKeyInfo } from "./AudioNotesSettings";
+import type { ApiKeyInfo } from "./AudioNotesSettings";
 import { WHISPER_LANGUAGE_CODES } from "./utils";
 
 

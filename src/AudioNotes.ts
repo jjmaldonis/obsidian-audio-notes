@@ -1,5 +1,5 @@
 import { Notice } from "obsidian";
-import { Transcript } from "./Transcript";
+import type { Transcript } from "./Transcript";
 import { DefaultMap, secondsToTimeString, timeStringToSeconds } from "./utils";
 
 

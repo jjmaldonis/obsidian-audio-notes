@@ -1,7 +1,6 @@
 import {
 	MarkdownView,
 	Plugin,
-	MarkdownPostProcessorContext,
 	Notice,
 	TFile,
 	Platform,
@@ -9,6 +8,8 @@ import {
 	WorkspaceLeaf,
 	MarkdownRenderer,
 } from "obsidian";
+
+import type { MarkdownPostProcessorContext } from "obsidian";
 
 // Local imports
 import { QuickNotePostProcessor } from "./DGQuickAudioNoteFormatter";
@@ -37,7 +38,6 @@ import {
 	Transcript,
 	parseTranscript,
 	TranscriptsCache,
-	TranscriptSegment,
 } from "./Transcript";
 
 // Load Font-Awesome stuff
@@ -45,7 +45,6 @@ import { library } from "@fortawesome/fontawesome-svg-core";
 import { faCopy, far } from "@fortawesome/free-regular-svg-icons";
 import { fas } from "@fortawesome/free-solid-svg-icons";
 import { fab } from "@fortawesome/free-brands-svg-icons";
-import DgQuickAudioNote from "./DGQuickAudioNote.svelte";
 // Load the actual library so the icons render.
 library.add(fas, far, fab, faCopy);
 
@@ -62,9 +61,7 @@ export default class AutomaticAudioNotes extends Plugin {
 	}
 
 	async loadSettings() {
-
 		const loadedData = await this.loadData();
-		console.log("Loaded data: ", loadedData);
 		const newSettings = new AudioNotesSettings(
 			parseFloat(loadedData["_plusMinusDuration"]),
 			parseFloat(loadedData["_backwardStep"]),
@@ -75,7 +72,6 @@ export default class AutomaticAudioNotes extends Plugin {
 			loadedData["_showDeepgramLogo"]
 		);
 		this.settings = AudioNotesSettings.overrideDefaultSettings(newSettings);
-
 	}
 
 	async saveSettings() {

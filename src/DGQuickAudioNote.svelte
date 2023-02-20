@@ -12,8 +12,8 @@
 	export let audioTagUrl: string;
 	export let blobdata: ArrayBuffer;
 	export let mainblob: Blob;
-	export let recorder: MediaRecorder;
-	export let gumStream: MediaStream;
+	export let recorder: MediaRecorder | undefined;
+	export let gumStream: MediaStream | undefined;
 	export let extension: any;
 	export let modal = Modal;
 	if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
@@ -36,7 +36,7 @@
 		navigator.mediaDevices
 			.getUserMedia(constraints)
 			.then(function (stream) {
-				console.log(
+				console.info(
 					"getUserMedia() success, stream created, initializing MediaRecorder"
 				);
 
@@ -60,18 +60,18 @@
 					// add stream data to chunks
 					chunks.push(e.data);
 					// if recorder is 'inactive' then recording has finished
-					if (recorder.state == "inactive") {
+					if (recorder!.state == "inactive") {
 						// convert stream data chunks to a 'webm' audio format as a blob
 						mainblob = new Blob(chunks, {
 							type: "audio/" + extension,
 							bitsPerSecond: 128000,
-						});
+						} as any);
 						getDownloadedFile(mainblob);
 					}
 				};
 
 				recorder.onerror = function (e: any) {
-					console.log(e.error);
+					console.error(`Could not record audio: ${e.error}`);
 				};
 
 				//start recording using 1 second chunks
@@ -79,7 +79,7 @@
 				recorder.start(1000);
 			})
 			.catch(function (err) {
-				console.log("getUserMedia() failed: " + err);
+				console.error("getUserMedia() failed: " + err);
 				//enable the record button if getUserMedia() fails
 				// startRecord.disabled = false;
 				// stopRecord.disabled = true;
@@ -96,18 +96,17 @@
 			folder = audioSaveLocation === "" ? "/audio" : audioSaveLocation;
 			await plugin.app.vault.createFolder(folder);
 		} catch (err) {
-			console.log("Folder exists. Skipping creation.");
+			console.info("Folder exists. Skipping creation.");
 		}
 		const file = await plugin.app.vault.createBinary(
 			`${folder}/${recording_filename}`,
 			blobdata
 		);
-		console.log("FILE", `${folder}/${recording_filename}`, file);
 		new Notice(`${recording_filename} saved ! Link copied to clipboard`);
 		clipboard.writeText(`![[${recording_filename}]]`);
-		modal.close();
+		this.modal.close();
 		const mdString = makeTranscriptBlock(
-			transcript,
+			transcript || "",
 			`${folder}/${recording_filename}`,
 			noteTitle || `Audio Note - ${now}`
 		);
@@ -142,13 +141,13 @@
 		);
 	}
 	function pauseRecording() {
-		if (recorder.state == "recording") {
+		if (recorder!.state == "recording") {
 			//pause
-			recorder.pause();
+			recorder!.pause();
 			recordingState = "paused";
-		} else if (recorder.state == "paused") {
+		} else if (recorder!.state == "paused") {
 			//resume
-			recorder.resume();
+			recorder!.resume();
 			recordingState = "recording";
 		}
 	}
@@ -156,10 +155,10 @@
 		recordingState = "stopped";
 
 		//tell the recorder to stop the recording
-		recorder.stop();
+		recorder!.stop();
 
 		//stop microphone access
-		gumStream.getAudioTracks()[0].stop();
+		gumStream!.getAudioTracks()[0].stop();
 	}
 	async function getTranscription(buffer: Buffer, options: any) {
 		let optionsWithValue = Object.keys(options).filter(function (x) {

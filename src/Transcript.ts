@@ -1,6 +1,6 @@
 import { Notice, Plugin, request } from "obsidian";
 import { XMLParser } from 'fast-xml-parser';
-import { AudioNotesSettings } from "./AudioNotesSettings";
+import type { AudioNotesSettings } from "./AudioNotesSettings";
 
 
 export class Transcript {
