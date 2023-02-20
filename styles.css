@@ -152,7 +152,7 @@ If your plugin does not need CSS, delete this file.
 
 .audio-player-container::before {
 	position: absolute;
-	content: '';
+	content: "";
 	width: calc(100% + 4px);
 	height: calc(100% + 4px);
 	left: -2px;
@@ -293,7 +293,8 @@ select.select-model-accuracy {
 	text-align: center;
 }
 
-.create-new-audio-note-file-input-element {}
+.create-new-audio-note-file-input-element {
+}
 
 .create-new-audio-note-file-url-container {
 	display: flex;
@@ -383,15 +384,89 @@ button.tablinks:not(:last-child) {
 	display: flex;
 }
 
-.modal-container .prompt .podcast-episode-select-div .span-podcast-episode-select-text {
+.modal-container
+	.prompt
+	.podcast-episode-select-div
+	.span-podcast-episode-select-text {
 	width: 200px;
 	align-self: center;
 }
 
-.modal-container .prompt .podcast-episode-select-div .select-podcast-episode-results {
+.modal-container
+	.prompt
+	.podcast-episode-select-div
+	.select-podcast-episode-results {
 	margin-left: auto;
 	width: -webkit-fill-available;
 	max-width: calc(100% - 153px);
 }
 
 /* END tabs*/
+
+/* START DG Quick Audio Note */
+.dg-audio-note {
+	border: 1px solid var(--background-modifier-border);
+	padding: 10px;
+}
+
+.dg-audio-note-title {
+	font-weight: 600;
+}
+
+.dg-audio-note-audio {
+	margin-top: 10px;
+}
+
+.modal-main-div {
+	display: flex;
+	justify-content: center;
+	flex-direction: column;
+}
+
+input.title-input {
+	padding: 6px 5px;
+}
+.button-container {
+	display: grid;
+	grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.button-container button {
+	margin-right: 5px;
+	margin-left: 5px;
+}
+
+.dg-audio-note-powered-by {
+	/* background-image: url("https://res.cloudinary.com/deepgram/image/upload/v1676406242/blog/DG-powered-by-logo-black-red-horizontal-rgb_wqhltl.svg"); */
+	/* height: 20px; */
+	width: auto;
+
+	/* background-size: contain; */
+	margin-left: auto;
+	/* background-repeat: no-repeat;
+	background-position: right; */
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+.dg-audio-note-logo.theme-light {
+	background-color: whitesmoke;
+	height: 20px;
+	width: auto;
+	margin-left: auto;
+}
+
+.dg-audio-note-powered-by.hidden {
+	display: none;
+}
+
+.dg-quick-note-modal {
+	--dialog-width: 75vw;
+	height: auto;
+	--dialog-max-height: 75vh;
+}
+.info svg {
+	width: 11px;
+	margin-left: 3px;
+}
+/* END DG Quick Audio Note */
