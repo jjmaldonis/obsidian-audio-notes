@@ -18,7 +18,15 @@ export class DGQuickNoteModal extends Modal {
 			props: {
 				// @ts-ignore
 				plugin: this.plugin,
-				modal: this,
+				transcript: undefined,
+				audioSaveLocation: undefined,
+				noteTitle: "",
+				audioTagUrl: "",
+				blobdata: new ArrayBuffer(0),
+				mainblob: new Blob(),
+				recorder: undefined,
+				gumStream: undefined,
+				extension: undefined,
 			},
 		});
 	}
