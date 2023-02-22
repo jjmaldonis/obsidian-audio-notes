@@ -15,7 +15,7 @@
 	export let recorder: MediaRecorder | undefined;
 	export let gumStream: MediaStream | undefined;
 	export let extension: any;
-	export let modal = Modal;
+	export const modal = Modal;
 	if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
 		extension = "webm";
 	} else {
