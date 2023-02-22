@@ -34,11 +34,7 @@ import {
 	getAudioPlayerIdentify,
 	getStartAndEndFromBracketString,
 } from "./AudioNotes";
-import {
-	Transcript,
-	parseTranscript,
-	TranscriptsCache,
-} from "./Transcript";
+import { Transcript, parseTranscript, TranscriptsCache } from "./Transcript";
 
 // Load Font-Awesome stuff
 import { library } from "@fortawesome/fontawesome-svg-core";
@@ -569,6 +565,23 @@ export default class AutomaticAudioNotes extends Plugin {
 					this.settings.audioNotesApiKey,
 					this.settings.getInfoByApiKey()
 				).open();
+			},
+		});
+
+		this.addCommand({
+			id: "quick-audio-note",
+			name: "Generate quick audio recording with transcription",
+			callback: async () => {
+				if (
+					this.settings.DGApiKey === "" ||
+					this.settings.DGApiKey === undefined
+				) {
+					new Notice(
+						"Please set your Deepgram API key in the settings tab."
+					);
+				} else {
+					new DGQuickNoteModal(this).open();
+				}
 			},
 		});
 

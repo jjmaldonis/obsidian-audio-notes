@@ -232,3 +232,15 @@ After I have replied to you, you'll be able to subscribe on [Ko-Fi](https://ko-f
 I will then send you an API key to use, and you'll be able to start generating transcripts!
 
 If you are overloading the service, I may ask you to slow down your requests so other people can use the service and get their transcripts quickly.
+
+## Quick Audio Notes
+
+Obsidian provides a Core plugin called Audio Recorder which is pretty cool, but it lacks some features. We've expanded on that idea by giving the ability to get transcripts of your audio added directly to the notes. You also have the ability to pause and resume the recording incase you get interupted mid-recording.
+
+### Usage
+
+First, you'll need an API Key from [Deepgram AI](https://dpgr.am/obsidian). It does cost money, but it is really affordable. They also give you up to 12,000 minutes of free transcription for free as part of the trial period, depending on which additional options you select. Add that to the Deepgram API Key setting inside the plugin settings once you have it.
+
+You can then either use the command `Generate quick audio recording with transcription`, or you can click the microphone icon in the side ribbon. This will pop open a modal giving you the options to select for the transcription. (To learn more about each option, visit their respective links in the modal.) After checking the options you want added, you can hit the green microphone button to start the recording.
+
+When you are done recording, hit the stop button. It will take a few seconds for the transcription to be ready, when it is you can hit the "Save" button and the audio and transcription will get added to your document.
