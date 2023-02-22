@@ -239,7 +239,7 @@ Obsidian provides a Core plugin called Audio Notes which is pretty cool, but it 
 
 ### Usage
 
-First, you'll need an API Key from [Deepgram AI](https://dpgr.am/obsidian). It does cost money, but it is really affordable. They also give you $150 of credit for free as part of the trial period which equates to about 150-200 hours of free audio transcription, depending on which options you select. Add that to the Deepgram API Key setting inside the plugin settings once you have it.
+First, you'll need an API Key from [Deepgram AI](https://dpgr.am/obsidian). It does cost money, but it is really affordable. They also give you up to 12,000 minutes of free transcription for free as part of the trial period, depending on which additional options you select. Add that to the Deepgram API Key setting inside the plugin settings once you have it.
 
 You can then either use the command `Generate quick audio recording with transcription`, or you can click the microphone icon in the side ribbon. This will pop open a modal giving you the options to select for the transcription. (To learn more about each option, visit their respective links in the modal.) After checking the options you want added, you can hit the green microphone button to start the recording.
 
