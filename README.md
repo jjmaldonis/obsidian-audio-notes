@@ -235,7 +235,7 @@ If you are overloading the service, I may ask you to slow down your requests so 
 
 ## Quick Audio Notes
 
-Obsidian provides a Core plugin called Audio Notes which is pretty cool, but it lacks some features. We've expanded on that idea by giving the ability to get transcripts of your audio added directly to the notes. You also have the ability to pause and resume the recording incase you get interupted mid-recording.
+Obsidian provides a Core plugin called Audio Recorder which is pretty cool, but it lacks some features. We've expanded on that idea by giving the ability to get transcripts of your audio added directly to the notes. You also have the ability to pause and resume the recording incase you get interupted mid-recording.
 
 ### Usage
 
