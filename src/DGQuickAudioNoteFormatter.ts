@@ -54,15 +54,6 @@ export function QuickNotePostProcessor(
 	otherAudio.controlsList = "nodownload";
 	otherAudio.loop = false;
 	div.appendChild(otherAudio);
-	const poweredBy = div.createEl("a", {
-		cls: `dg-audio-note-powered-by ${showLogo ? "" : "hidden"}`,
-		href: "https://deepgram.com",
-	});
-	const logo = poweredBy.createEl("img", {
-		cls: "dg-audio-note-logo theme-light",
-	});
-	logo.src =
-		"https://res.cloudinary.com/deepgram/image/upload/v1676406242/blog/DG-powered-by-logo-black-red-horizontal-rgb_wqhltl.svg";
 
 	const transcriptEl = div.createEl("p", {
 		cls: "dg-audio-note-transcript",
@@ -80,5 +71,4 @@ export function QuickNotePostProcessor(
 			href: this._getFullPath(noteObj.vttSrc || ""),
 		});
 	}
-	div.appendChild(poweredBy);
 }

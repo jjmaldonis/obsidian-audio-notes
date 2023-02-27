@@ -2,6 +2,7 @@
 	import { Mic, Pause, Square, Info } from "lucide-svelte";
 	import { Deepgram } from "@deepgram/sdk";
 	import { Modal, Notice } from "obsidian";
+	import PoweredBy from "./PoweredBy.svelte";
 	const { clipboard } = require("electron");
 	import type AutomaticAudioNotes from "./main";
 	export let plugin: AutomaticAudioNotes;
@@ -15,7 +16,7 @@
 	export let recorder: MediaRecorder | undefined;
 	export let gumStream: MediaStream | undefined;
 	export let extension: any;
-	export const modal = Modal;
+	export let modal: Modal;
 	if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
 		extension = "webm";
 	} else {
@@ -104,12 +105,13 @@
 		);
 		new Notice(`${recording_filename} saved ! Link copied to clipboard`);
 		clipboard.writeText(`![[${recording_filename}]]`);
-		this.modal.close();
+		modal.close();
 		const mdString = makeTranscriptBlock(
 			transcript || "",
 			`${folder}/${recording_filename}`,
 			noteTitle || `Audio Note - ${now}`
 		);
+		console.log({ mdString });
 
 		let editor = plugin.app.workspace.activeEditor?.editor;
 		editor?.replaceSelection(mdString);
@@ -188,10 +190,10 @@
 <div class="number">
 	<div class="header-container">
 		<h2>Quick Audio Note</h2>
-		<img
-			src="https://res.cloudinary.com/deepgram/image/upload/v1676406242/blog/DG-powered-by-logo-black-red-horizontal-rgb_wqhltl.svg"
-			alt="Powered By Deepgram"
-		/>
+		<!-- <img src="/DG-powered-by-logo.svg" alt="Powered By Deepgram" /> -->
+		<div class="powered-by">
+			<PoweredBy />
+		</div>
 	</div>
 	<div class="main-container">
 		<div class="left">
@@ -407,10 +409,11 @@
 		margin-bottom: 0;
 	}
 
-	.header-container img {
+	.powered-by {
 		background-color: whitesmoke;
 		max-width: 150px;
 		margin-top: 5px;
+		border-radius: 5px;
 	}
 
 	.header-container {

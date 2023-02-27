@@ -27,6 +27,7 @@ export class DGQuickNoteModal extends Modal {
 				recorder: undefined,
 				gumStream: undefined,
 				extension: undefined,
+				modal: this,
 			},
 		});
 	}
