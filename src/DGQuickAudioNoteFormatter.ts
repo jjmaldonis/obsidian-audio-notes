@@ -36,7 +36,7 @@ export function QuickNotePostProcessor(
 	for (let line of lines) {
 		const [key, value] = line.split(":");
 		// @ts-ignore
-		noteObj[key] = value.trim();
+		noteObj[key] = value ? value.trim() : "";
 	}
 	const div = el.createDiv({ cls: "dg-audio-note" });
 	const title = div.createDiv({
