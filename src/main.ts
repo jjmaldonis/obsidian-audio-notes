@@ -593,12 +593,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		this.registerMarkdownCodeBlockProcessor(
 			`dg-audio-note`,
 			(src, el, ctx) => {
-				return QuickNotePostProcessor(
-					src,
-					el,
-					ctx,
-					this.settings.showDeepgramLogo
-				);
+				return QuickNotePostProcessor(src, el, ctx);
 			}
 		);
 		// Done!
