@@ -173,17 +173,23 @@
 			optionsToPass[key] = options[key];
 		});
 		const deepgram = new Deepgram(plugin.settings.DGApiKey);
-		const dgResponse = await deepgram.transcription.preRecorded(
-			{
-				buffer: buffer,
-				mimetype: "audio/webm",
-			},
-			// @ts-ignore
-			optionsToPass
-		);
-
-		transcript =
-			dgResponse?.results?.channels[0].alternatives[0].transcript;
+		try {
+			const dgResponse = await deepgram.transcription.preRecorded(
+				{
+					buffer: buffer,
+					mimetype: "audio/webm",
+				},
+				// @ts-ignore
+				optionsToPass
+			);
+			console.log("dgResponse", dgResponse);
+			transcript =
+				dgResponse?.results?.channels[0].alternatives[0].transcript;
+			console.log("transcript", transcript);
+		} catch (err) {
+			console.error(err);
+			new Notice(`Error getting transcription: ${err.message}`);
+		}
 	}
 </script>
 
