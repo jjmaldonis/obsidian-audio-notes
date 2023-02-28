@@ -57,7 +57,7 @@ export default class AutomaticAudioNotes extends Plugin {
 	}
 
 	async loadSettings() {
-		const loadedData = await this.loadData() || new Object();
+		const loadedData = (await this.loadData()) || new Object();
 		const newSettings = new AudioNotesSettings(
 			parseFloat(loadedData["_plusMinusDuration"]),
 			parseFloat(loadedData["_backwardStep"]),
