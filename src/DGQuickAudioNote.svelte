@@ -16,6 +16,8 @@
 	export let recorder: MediaRecorder | undefined;
 	export let gumStream: MediaStream | undefined;
 	export let extension: any;
+	export let saveButtonState: boolean = false;
+	export let saveButtonText: string = "Click Record to start Recording";
 	export let modal: Modal;
 	if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
 		extension = "webm";
@@ -33,6 +35,7 @@
 	export let recordingState = "not-started";
 	function startRecording() {
 		recordingState = "recording";
+		saveButtonText = "Click Stop to stop Recording";
 		const constraints = { audio: true };
 		navigator.mediaDevices
 			.getUserMedia(constraints)
@@ -155,7 +158,7 @@
 	}
 	function stopRecording() {
 		recordingState = "stopped";
-
+		saveButtonText = "Getting Transcript from Deepgram";
 		//tell the recorder to stop the recording
 		recorder!.stop();
 
@@ -186,9 +189,14 @@
 			transcript =
 				dgResponse?.results?.channels[0].alternatives[0].transcript;
 			console.log("transcript", transcript);
+			saveButtonState = true;
+			saveButtonText = "Save Note with Transcription";
 		} catch (err) {
 			console.error(err);
 			new Notice(`Error getting transcription: ${err.message}`);
+			saveButtonState = false;
+			saveButtonText =
+				"Error getting transcription. Please try again, or see developer console for errors when reporting.";
 		}
 	}
 </script>
@@ -400,11 +408,11 @@
 				{/if}
 			</div>
 			<button
-				disabled={recordingState !== "stopped"}
+				disabled={recordingState !== "stopped" || !saveButtonState}
 				id="save-button"
 				on:click={saveTranscription}
 			>
-				Save Note with Transcription
+				{saveButtonText}
 			</button>
 		</div>
 	</div>
