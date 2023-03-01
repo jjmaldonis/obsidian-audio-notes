@@ -69,7 +69,7 @@ If you're on your computer, you can use hotkeys to control the currently-playing
 
 If you like to read as you listen, you can add the `liveUpdate: true` attribute to the codeblock.
 
-When this feature is turned on, the quote in the audio note will automatically update as the audio plays.
+When this feature is turned on, the quote in the audio note will automatically update as the audio plays. (note: the subtitles will not change unless the audio is playing.)
 
 ## Using on Mobile
 
