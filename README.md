@@ -1,4 +1,4 @@
-![version](https://img.shields.io/badge/version-0.6.2-blue)
+![version](https://img.shields.io/badge/version-0.6.3-blue)
 ![license](https://img.shields.io/badge/license-MIT-brightgreen)
 <a href='https://ko-fi.com/jjmaldonis' target='_blank'><img height='20' style='border:0px;height:26px;margin-bottom:-2.5px;' src='https://az743702.vo.msecnd.net/cdn/kofi3.png?v=0' border='0' alt='Buy Me a Coffee :)' /></a>
 
@@ -30,6 +30,7 @@ To create one, you must specify an audio file and can set a few other attributes
 * `title`: (optional) The title of your note.
 * `transcript`: (optional) The filename of the transcript. See below for details.
 * `author`: (optional) The text to be used as the author of the quote.
+* `liveUpdate: true`: (optional) If you add the `liveUpdate: true` attribute to the codeblock, the quote will automatically update in the codeblock as the audio plays (see below for more info).
 
 ## How to Use the Plugin
 
@@ -63,6 +64,12 @@ If you're on your computer, you can use hotkeys to control the currently-playing
 - `Ctrl + Shift + Space`: Toggle play/pause
 - `Ctrl + Shift + N`: Create new audio note at current time
 - `Ctrl + Shift + G`: Regenerate current audio note
+
+#### Live Update for Reading
+
+If you like to read as you listen, you can add the `liveUpdate: true` attribute to the codeblock.
+
+When this feature is turned on, the quote in the audio note will automatically update as the audio plays.
 
 ## Using on Mobile
 

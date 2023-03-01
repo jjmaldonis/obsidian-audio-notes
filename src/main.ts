@@ -58,10 +58,42 @@ export default class AutomaticAudioNotes extends Plugin {
 
 	async loadSettings() {
 		const loadedData = (await this.loadData()) || new Object();
+		let _plusDuration = loadedData["_plusDuration"];
+		let _minusDuration = loadedData["_minusDuration"];
+		let _backwardStep = loadedData["_backwardStep"];
+		let _forwardStep = loadedData["_forwardStep"];
+		if (_plusDuration) {
+			_plusDuration = parseFloat(_plusDuration);
+		}
+		if (_minusDuration) {
+			_minusDuration = parseFloat(_minusDuration);
+		}
+		let _plusMinusDuration = loadedData["_plusMinusDuration"]; // outdated as of March 1st 2023; remove later.
+		if (_plusMinusDuration) {
+			if (_plusDuration === undefined) {
+				_plusDuration = _plusMinusDuration;
+			}
+			if (_minusDuration === undefined) {
+				_minusDuration = _plusMinusDuration;
+			}
+		}
+		if (_plusDuration === undefined) {
+			_plusDuration = 30;
+		}
+		if (_minusDuration === undefined) {
+			_minusDuration = 30;
+		}
+		if (_backwardStep === undefined) {
+			_backwardStep = 5;
+		}
+		if (_forwardStep === undefined) {
+			_forwardStep = 15;
+		}
 		const newSettings = new AudioNotesSettings(
-			parseFloat(loadedData["_plusMinusDuration"]),
-			parseFloat(loadedData["_backwardStep"]),
-			parseFloat(loadedData["_forwardStep"]),
+			_plusDuration,
+			_minusDuration,
+			_backwardStep,
+			_forwardStep,
 			loadedData["_audioNotesApiKey"],
 			loadedData["_debugMode"],
 			loadedData["_DGApiKey"],
@@ -229,7 +261,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		// Add all the commands
 		this.addCommand({
 			id: "create-new-audio-note",
-			name: `Create new Audio Note at current time (+/- ${this.settings.plusMinusDuration} seconds)`,
+			name: `Create new Audio Note at current time (-/+ ${this.settings.minusDuration}/${this.settings.plusDuration} seconds)`,
 			checkCallback: (checking: boolean) => {
 				// Conditions to check
 				const markdownView =
@@ -256,10 +288,10 @@ export default class AutomaticAudioNotes extends Plugin {
 								}
 								audioNote.start =
 									currentTime -
-									this.settings.plusMinusDuration;
+									this.settings.minusDuration;
 								audioNote.end =
 									currentTime +
-									this.settings.plusMinusDuration;
+									this.settings.plusDuration;
 								this.createNewAudioNoteAtEndOfFile(
 									markdownView,
 									audioNote
@@ -283,7 +315,7 @@ export default class AutomaticAudioNotes extends Plugin {
 
 		this.addCommand({
 			id: "create-audio-note-from-media-extended-plugin",
-			name: `(Media Extended YouTube Video) Create new Audio Note at current time (+/- ${this.settings.plusMinusDuration} seconds)`,
+			name: `(Media Extended YouTube Video) Create new Audio Note at current time (-/+ ${this.settings.minusDuration}/${this.settings.plusDuration} seconds)`,
 			checkCallback: (checking: boolean) => {
 				// https://github.com/aidenlx/media-extended/blob/1e8f37756403423cd100e51f58d27ed961acf56b/src/mx-main.ts#L120
 				type MediaView = any;
@@ -347,9 +379,9 @@ export default class AutomaticAudioNotes extends Plugin {
 										notTimestamp,
 										url,
 										currentTime -
-											this.settings.plusMinusDuration,
+											this.settings.minusDuration,
 										currentTime +
-											this.settings.plusMinusDuration,
+											this.settings.plusDuration,
 										1.0,
 										url,
 										undefined,
