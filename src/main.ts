@@ -205,11 +205,8 @@ export default class AutomaticAudioNotes extends Plugin {
 	}
 
 	async onload() {
-		monkeyPatchConsole(this);
-		console.log("Audio Notes: loading settings...")
 		// Load Settings
 		await this.loadSettings();
-		console.log("Audio Notes: loaded settings!")
 		this.addSettingTab(new AudioNotesSettingsTab(this.app, this));
 		const ribbonIconEl = this.addRibbonIcon(
 			"microphone",
@@ -249,7 +246,6 @@ export default class AutomaticAudioNotes extends Plugin {
 		}
 		data.positions = newPositions;
 		this.saveData(data);
-		console.log("Audio Notes: saved audio positions")
 		// Make sure the UUID is set in the data.json file. It doesn't need to be a perfect UUID, so we don't need a package for it.
 		if (!data.uuid) {
 			data.uuid = getUniqueId(4);
@@ -267,7 +263,6 @@ export default class AutomaticAudioNotes extends Plugin {
 			monkeyPatchConsole(this);
 		}
 
-		console.log("Audio Notes: loading commands...")
 		// Add all the commands
 		this.addCommand({
 			id: "create-new-audio-note",

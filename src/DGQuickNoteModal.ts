@@ -1,4 +1,4 @@
-import { Modal, Notice } from "obsidian";
+import { Modal } from "obsidian";
 import DGQuickAudioNote from "./DGQuickAudioNote.svelte";
 import type AutomaticAudioNotes from "./main";
 

@@ -41,7 +41,7 @@
 			.getUserMedia(constraints)
 			.then(function (stream) {
 				console.info(
-					"getUserMedia() success, stream created, initializing MediaRecorder"
+					"Audio Notes: getUserMedia() success, stream created, initializing MediaRecorder"
 				);
 
 				/*  assign to gumStream for later use  */
@@ -75,7 +75,7 @@
 				};
 
 				recorder.onerror = function (e: any) {
-					console.error(`Could not record audio: ${e.error}`);
+					console.error(`Audio Notes: Could not record audio: ${e.error}`);
 				};
 
 				//start recording using 1 second chunks
@@ -83,7 +83,7 @@
 				recorder.start(1000);
 			})
 			.catch(function (err) {
-				console.error("getUserMedia() failed: " + err);
+				console.error(`Audio Notes: getUserMedia() failed: ${err}`);
 				//enable the record button if getUserMedia() fails
 				// startRecord.disabled = false;
 				// stopRecord.disabled = true;
@@ -100,7 +100,7 @@
 			folder = audioSaveLocation === "" ? "/audio" : audioSaveLocation;
 			await plugin.app.vault.createFolder(folder);
 		} catch (err) {
-			console.info("Folder exists. Skipping creation.");
+			console.info("Audio Notes: Folder exists. Skipping creation.");
 		}
 		const file = await plugin.app.vault.createBinary(
 			`${folder}/${recordingFilename}`,
@@ -114,7 +114,6 @@
 			`${folder}/${recordingFilename}`,
 			noteTitle || `Audio Note - ${now}`
 		);
-		console.log({ mdString });
 
 		let editor = plugin.app.workspace.activeEditor?.editor;
 		editor?.replaceSelection(mdString);
@@ -185,14 +184,13 @@
 				// @ts-ignore
 				optionsToPass
 			);
-			console.log("dgResponse", dgResponse);
 			transcript =
 				dgResponse?.results?.channels[0].alternatives[0].transcript;
-			console.log("transcript", transcript);
+			console.info(`Audio Notes: transcript: ${transcript}`);
 			saveButtonState = true;
 			saveButtonText = "Save Note with Transcription";
 		} catch (err) {
-			console.error(err);
+			console.error(`Audio Notes: Could not get transcription: ${err}`);
 			new Notice(`Error getting transcription: ${err.message}`);
 			saveButtonState = false;
 			saveButtonText =
