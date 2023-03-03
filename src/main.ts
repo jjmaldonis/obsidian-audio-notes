@@ -71,11 +71,17 @@ export default class AutomaticAudioNotes extends Plugin {
 		let _plusMinusDuration = loadedData["_plusMinusDuration"]; // outdated as of March 1st 2023; remove later.
 		if (_plusMinusDuration) {
 			if (_plusDuration === undefined) {
-				_plusDuration = _plusMinusDuration;
+				_plusDuration = parseFloat(_plusMinusDuration);
 			}
 			if (_minusDuration === undefined) {
-				_minusDuration = _plusMinusDuration;
+				_minusDuration = parseFloat(_plusMinusDuration);
 			}
+		}
+		if (_backwardStep) {
+			_backwardStep = parseFloat(_backwardStep);
+		}
+		if (_forwardStep) {
+			_forwardStep = parseFloat(_forwardStep);
 		}
 		if (_plusDuration === undefined) {
 			_plusDuration = 30;
