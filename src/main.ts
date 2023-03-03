@@ -205,8 +205,11 @@ export default class AutomaticAudioNotes extends Plugin {
 	}
 
 	async onload() {
+		monkeyPatchConsole(this);
+		console.log("Audio Notes: loading settings...")
 		// Load Settings
 		await this.loadSettings();
+		console.log("Audio Notes: loaded settings!")
 		this.addSettingTab(new AudioNotesSettingsTab(this.app, this));
 		const ribbonIconEl = this.addRibbonIcon(
 			"microphone",
@@ -227,8 +230,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		);
 		// Go through the loaded settings and set the timestamps of any src's that have been played in the last 3 months.
 		// Resave the data after filtering out any src's that were played more than 3 months ago.
-		const todayMinusThreeMonthsInMilliseconds =
-			new Date().getTime() - 7.884e9;
+		const todayMinusThreeMonthsInMilliseconds = new Date().getTime() - 7.884e9;
 		let data = await this.loadData();
 		if (!data) {
 			data = new Object();
@@ -247,7 +249,8 @@ export default class AutomaticAudioNotes extends Plugin {
 		}
 		data.positions = newPositions;
 		this.saveData(data);
-		// Make the UUID is set in the data.json file. It doesn't need to be a perfect UUID, so we don't need a package for it.
+		console.log("Audio Notes: saved audio positions")
+		// Make sure the UUID is set in the data.json file. It doesn't need to be a perfect UUID, so we don't need a package for it.
 		if (!data.uuid) {
 			data.uuid = getUniqueId(4);
 			this.saveData(data);
@@ -264,6 +267,7 @@ export default class AutomaticAudioNotes extends Plugin {
 			monkeyPatchConsole(this);
 		}
 
+		console.log("Audio Notes: loading commands...")
 		// Add all the commands
 		this.addCommand({
 			id: "create-new-audio-note",
