@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { Mic, Pause, Square, Info } from "lucide-svelte";
-	import { Deepgram } from "@deepgram/sdk";
+	import { deepgramPrerecorded } from "./DeepgramPrerecorded";
 	import { Modal, Notice } from "obsidian";
 	import PoweredBy from "./PoweredBy.svelte";
-	const { clipboard } = require("electron");
 	import type AutomaticAudioNotes from "./main";
 	export let plugin: AutomaticAudioNotes;
 	export let transcript: string | undefined;
@@ -106,8 +105,8 @@
 			`${folder}/${recordingFilename}`,
 			blobdata
 		);
+		await navigator.clipboard.writeText(`![[${recordingFilename}]]`);
 		new Notice(`${recordingFilename} saved ! Link copied to clipboard`);
-		clipboard.writeText(`![[${recordingFilename}]]`);
 		modal.close();
 		const mdString = makeTranscriptBlock(
 			transcript || "",
@@ -128,9 +127,8 @@
 	}
 	async function getDownloadedFile(blob: any) {
 		blobdata = await blob.arrayBuffer();
-		const buffer = Buffer.from(blobdata);
 		await getTranscription(
-			buffer,
+			blobdata,
 			// get options from state
 			{
 				language: settings.language,
@@ -164,7 +162,10 @@
 		//stop microphone access
 		gumStream!.getAudioTracks()[0].stop();
 	}
-	async function getTranscription(buffer: Buffer, options: any) {
+	async function getTranscription(
+		buffer: Buffer | ArrayBuffer,
+		options: any
+	) {
 		let optionsWithValue = Object.keys(options).filter(function (x) {
 			// @ts-ignore
 			return options[x] !== false && options[x] !== "";
@@ -174,9 +175,9 @@
 			// @ts-ignore
 			optionsToPass[key] = options[key];
 		});
-		const deepgram = new Deepgram(plugin.settings.DGApiKey);
 		try {
-			const dgResponse = await deepgram.transcription.preRecorded(
+			const dgResponse = await deepgramPrerecorded(
+				plugin.settings.DGApiKey,
 				{
 					buffer: buffer,
 					mimetype: "audio/webm",
@@ -449,6 +450,7 @@
 	.right {
 		margin-top: 20px;
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 	}
 	.save-location {
 		display: grid;
@@ -527,6 +529,7 @@
 		padding: 25px 13px;
 		background-color: #38edac;
 		color: black;
+		max-width: 55px;
 	}
 	#save-button {
 		background-color: #38edac;
@@ -534,6 +537,7 @@
 		border-radius: 5px;
 		padding: 10px 20px;
 		border: none;
+		width: 100%;
 	}
 	#save-button:disabled,
 	.record-button:disabled {

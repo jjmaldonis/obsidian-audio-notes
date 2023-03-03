@@ -634,7 +634,7 @@ export default class AutomaticAudioNotes extends Plugin {
 			}
 		);
 		// Done!
-		console.log("Audio Notes: Obsidian Audio Notes loaded");
+		console.info("Audio Notes: Obsidian Audio Notes loaded");
 	}
 
 	private async _updateCounts() {
