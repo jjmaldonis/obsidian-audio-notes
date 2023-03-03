@@ -58,10 +58,48 @@ export default class AutomaticAudioNotes extends Plugin {
 
 	async loadSettings() {
 		const loadedData = (await this.loadData()) || new Object();
+		let _plusDuration = loadedData["_plusDuration"];
+		let _minusDuration = loadedData["_minusDuration"];
+		let _backwardStep = loadedData["_backwardStep"];
+		let _forwardStep = loadedData["_forwardStep"];
+		if (_plusDuration) {
+			_plusDuration = parseFloat(_plusDuration);
+		}
+		if (_minusDuration) {
+			_minusDuration = parseFloat(_minusDuration);
+		}
+		let _plusMinusDuration = loadedData["_plusMinusDuration"]; // outdated as of March 1st 2023; remove later.
+		if (_plusMinusDuration) {
+			if (_plusDuration === undefined) {
+				_plusDuration = parseFloat(_plusMinusDuration);
+			}
+			if (_minusDuration === undefined) {
+				_minusDuration = parseFloat(_plusMinusDuration);
+			}
+		}
+		if (_backwardStep) {
+			_backwardStep = parseFloat(_backwardStep);
+		}
+		if (_forwardStep) {
+			_forwardStep = parseFloat(_forwardStep);
+		}
+		if (_plusDuration === undefined) {
+			_plusDuration = 30;
+		}
+		if (_minusDuration === undefined) {
+			_minusDuration = 30;
+		}
+		if (_backwardStep === undefined) {
+			_backwardStep = 5;
+		}
+		if (_forwardStep === undefined) {
+			_forwardStep = 15;
+		}
 		const newSettings = new AudioNotesSettings(
-			parseFloat(loadedData["_plusMinusDuration"]),
-			parseFloat(loadedData["_backwardStep"]),
-			parseFloat(loadedData["_forwardStep"]),
+			_plusDuration,
+			_minusDuration,
+			_backwardStep,
+			_forwardStep,
 			loadedData["_audioNotesApiKey"],
 			loadedData["_debugMode"],
 			loadedData["_DGApiKey"],
@@ -167,8 +205,11 @@ export default class AutomaticAudioNotes extends Plugin {
 	}
 
 	async onload() {
+		monkeyPatchConsole(this);
+		console.log("Audio Notes: loading settings...")
 		// Load Settings
 		await this.loadSettings();
+		console.log("Audio Notes: loaded settings!")
 		this.addSettingTab(new AudioNotesSettingsTab(this.app, this));
 		const ribbonIconEl = this.addRibbonIcon(
 			"microphone",
@@ -189,8 +230,7 @@ export default class AutomaticAudioNotes extends Plugin {
 		);
 		// Go through the loaded settings and set the timestamps of any src's that have been played in the last 3 months.
 		// Resave the data after filtering out any src's that were played more than 3 months ago.
-		const todayMinusThreeMonthsInMilliseconds =
-			new Date().getTime() - 7.884e9;
+		const todayMinusThreeMonthsInMilliseconds = new Date().getTime() - 7.884e9;
 		let data = await this.loadData();
 		if (!data) {
 			data = new Object();
@@ -209,7 +249,8 @@ export default class AutomaticAudioNotes extends Plugin {
 		}
 		data.positions = newPositions;
 		this.saveData(data);
-		// Make the UUID is set in the data.json file. It doesn't need to be a perfect UUID, so we don't need a package for it.
+		console.log("Audio Notes: saved audio positions")
+		// Make sure the UUID is set in the data.json file. It doesn't need to be a perfect UUID, so we don't need a package for it.
 		if (!data.uuid) {
 			data.uuid = getUniqueId(4);
 			this.saveData(data);
@@ -226,10 +267,11 @@ export default class AutomaticAudioNotes extends Plugin {
 			monkeyPatchConsole(this);
 		}
 
+		console.log("Audio Notes: loading commands...")
 		// Add all the commands
 		this.addCommand({
 			id: "create-new-audio-note",
-			name: `Create new Audio Note at current time (+/- ${this.settings.plusMinusDuration} seconds)`,
+			name: `Create new Audio Note at current time (-/+ ${this.settings.minusDuration}/${this.settings.plusDuration} seconds)`,
 			checkCallback: (checking: boolean) => {
 				// Conditions to check
 				const markdownView =
@@ -256,10 +298,10 @@ export default class AutomaticAudioNotes extends Plugin {
 								}
 								audioNote.start =
 									currentTime -
-									this.settings.plusMinusDuration;
+									this.settings.minusDuration;
 								audioNote.end =
 									currentTime +
-									this.settings.plusMinusDuration;
+									this.settings.plusDuration;
 								this.createNewAudioNoteAtEndOfFile(
 									markdownView,
 									audioNote
@@ -283,7 +325,7 @@ export default class AutomaticAudioNotes extends Plugin {
 
 		this.addCommand({
 			id: "create-audio-note-from-media-extended-plugin",
-			name: `(Media Extended YouTube Video) Create new Audio Note at current time (+/- ${this.settings.plusMinusDuration} seconds)`,
+			name: `(Media Extended YouTube Video) Create new Audio Note at current time (-/+ ${this.settings.minusDuration}/${this.settings.plusDuration} seconds)`,
 			checkCallback: (checking: boolean) => {
 				// https://github.com/aidenlx/media-extended/blob/1e8f37756403423cd100e51f58d27ed961acf56b/src/mx-main.ts#L120
 				type MediaView = any;
@@ -347,9 +389,9 @@ export default class AutomaticAudioNotes extends Plugin {
 										notTimestamp,
 										url,
 										currentTime -
-											this.settings.plusMinusDuration,
+											this.settings.minusDuration,
 										currentTime +
-											this.settings.plusMinusDuration,
+											this.settings.plusDuration,
 										1.0,
 										url,
 										undefined,

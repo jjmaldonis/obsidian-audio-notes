@@ -33,18 +33,38 @@ export class AudioNotesSettingsTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName("+/- duration (seconds) when generating new notes")
+			.setName("+ duration (seconds) when generating new notes")
 			.setDesc(
-				"The amount of time add to and subtract from the current time when creating new audio notes"
+				"The amount of time to add from the current time when creating new audio notes"
 			)
 			.addText((text) =>
 				text
 					.setPlaceholder("30")
-					.setValue(this.plugin.settings.plusMinusDuration.toString())
+					.setValue(this.plugin.settings.plusDuration.toString())
 					.onChange(async (value) => {
 						try {
 							parseFloat(value);
-							this.plugin.settings.plusMinusDuration = value;
+							this.plugin.settings.plusDuration = value;
+							await this.plugin.saveSettings();
+						} catch {
+							new Notice("Must be a number");
+						}
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("- duration (seconds) when generating new notes")
+			.setDesc(
+				"The amount of time to subtract from the current time when creating new audio notes"
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder("30")
+					.setValue(this.plugin.settings.minusDuration.toString())
+					.onChange(async (value) => {
+						try {
+							parseFloat(value);
+							this.plugin.settings.minusDuration = value;
 							await this.plugin.saveSettings();
 						} catch {
 							new Notice("Must be a number");
@@ -203,7 +223,8 @@ export class AudioNotesSettingsTab extends PluginSettingTab {
 }
 
 export interface StringifiedAudioNotesSettings {
-	plusMinusDuration: string;
+	plusDuration: string;
+	minusDuration: string;
 	backwardStep: string;
 	forwardStep: string;
 	audioNotesApiKey: string;
@@ -213,7 +234,8 @@ export interface StringifiedAudioNotesSettings {
 }
 
 const DEFAULT_SETTINGS: StringifiedAudioNotesSettings = {
-	plusMinusDuration: "30",
+	plusDuration: "30",
+	minusDuration: "30",
 	backwardStep: "5",
 	forwardStep: "15",
 	audioNotesApiKey: "",
@@ -224,7 +246,8 @@ const DEFAULT_SETTINGS: StringifiedAudioNotesSettings = {
 
 export class AudioNotesSettings {
 	constructor(
-		private _plusMinusDuration: number,
+		private _plusDuration: number,
+		private _minusDuration: number,
 		private _backwardStep: number,
 		private _forwardStep: number,
 		private _audioNotesApiKey: string,
@@ -235,7 +258,8 @@ export class AudioNotesSettings {
 
 	static fromDefaultSettings(): AudioNotesSettings {
 		return new AudioNotesSettings(
-			parseFloat(DEFAULT_SETTINGS.plusMinusDuration),
+			parseFloat(DEFAULT_SETTINGS.plusDuration),
+			parseFloat(DEFAULT_SETTINGS.minusDuration),
 			parseFloat(DEFAULT_SETTINGS.backwardStep),
 			parseFloat(DEFAULT_SETTINGS.forwardStep),
 			DEFAULT_SETTINGS.audioNotesApiKey,
@@ -253,10 +277,16 @@ export class AudioNotesSettings {
 			return settings;
 		}
 		if (
-			data.plusMinusDuration !== null &&
-			data.plusMinusDuration !== undefined
+			data.plusDuration !== null &&
+			data.plusDuration !== undefined
 		) {
-			settings.plusMinusDuration = data.plusMinusDuration!;
+			settings.plusDuration = data.plusDuration!;
+		}
+		if (
+			data.minusDuration !== null &&
+			data.minusDuration !== undefined
+		) {
+			settings.minusDuration = data.minusDuration!;
 		}
 		if (data.backwardStep !== null && data.backwardStep !== undefined) {
 			settings.backwardStep = data.backwardStep!;
@@ -285,15 +315,26 @@ export class AudioNotesSettings {
 		return settings;
 	}
 
-	get plusMinusDuration(): number {
-		return this._plusMinusDuration;
+	get plusDuration(): number {
+		return this._plusDuration;
 	}
 
-	set plusMinusDuration(value: number | string) {
+	set plusDuration(value: number | string) {
 		if (typeof value === "string") {
 			value = parseFloat(value);
 		}
-		this._plusMinusDuration = value;
+		this._plusDuration = value;
+	}
+
+	get minusDuration(): number {
+		return this._minusDuration;
+	}
+
+	set minusDuration(value: number | string) {
+		if (typeof value === "string") {
+			value = parseFloat(value);
+		}
+		this._minusDuration = value;
 	}
 
 	get backwardStep(): number {

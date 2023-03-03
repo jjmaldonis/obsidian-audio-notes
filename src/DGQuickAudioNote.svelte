@@ -92,7 +92,7 @@
 	async function saveTranscription() {
 		let now = new Date().toISOString().replace(/:/g, "-");
 
-		let recording_filename = `AudioNote-${now}.${extension}`;
+		let recordingFilename = `AudioNote-${now}.${extension}`;
 		audioTagUrl = URL.createObjectURL(mainblob);
 		let folder = "";
 		try {
@@ -102,15 +102,15 @@
 			console.info("Folder exists. Skipping creation.");
 		}
 		const file = await plugin.app.vault.createBinary(
-			`${folder}/${recording_filename}`,
+			`${folder}/${recordingFilename}`,
 			blobdata
 		);
-		await navigator.clipboard.writeText(`![[${recording_filename}]]`);
-		new Notice(`${recording_filename} saved ! Link copied to clipboard`);
+		await navigator.clipboard.writeText(`![[${recordingFilename}]]`);
+		new Notice(`${recordingFilename} saved ! Link copied to clipboard`);
 		modal.close();
 		const mdString = makeTranscriptBlock(
 			transcript || "",
-			`${folder}/${recording_filename}`,
+			`${folder}/${recordingFilename}`,
 			noteTitle || `Audio Note - ${now}`
 		);
 		console.log({ mdString });
@@ -123,7 +123,7 @@
 		audioSrc: string,
 		noteTitle: string
 	) {
-		const str = `\`\`\`dg-audio-note \ntitle: ${noteTitle}\naudioSrc: ${audioSrc}\ntranscript: ${transcript}\n\`\`\``;
+		const str = `\`\`\`dg-audio-note \ntitle: ${noteTitle}\naudioSrc: ${audioSrc}\ntranscript: ${transcript}\n\`\`\`\n`;
 		return str;
 	}
 	async function getDownloadedFile(blob: any) {
@@ -216,7 +216,7 @@
 		<div class="left">
 			<div class="save-location">
 				<label for="audioSaveLocation"
-					><p>Save Note In:</p>
+					><p>Save Audio In:</p>
 					<span>Default is /audio</span>
 				</label>
 
@@ -359,12 +359,12 @@
 		</div>
 		<div class="right">
 			<div id="note-title-container">
-				<label for="noteTitle">Note Title:</label>
+				<label for="noteTitle">Audio Note Title:</label>
 				<input
 					type="text"
 					id="noteTitle"
 					bind:value={noteTitle}
-					placeholder="Title of your note"
+					placeholder="Title of your audio note"
 				/>
 			</div>
 			<div id="recording-container">
@@ -429,7 +429,8 @@
 	.powered-by {
 		background-color: whitesmoke;
 		max-width: 150px;
-		margin-top: 5px;
+		margin-top: 8px;
+		margin-bottom: 4px;
 		border-radius: 5px;
 	}
 
@@ -491,7 +492,7 @@
 		}
 		div#note-title-container {
 			display: grid;
-			grid-template-columns: 100px 230px;
+			grid-template-columns: 128px 230px;
 		}
 	}
 
