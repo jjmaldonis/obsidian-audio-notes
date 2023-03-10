@@ -103,6 +103,7 @@ export default class AutomaticAudioNotes extends Plugin {
 			loadedData["_audioNotesApiKey"],
 			loadedData["_debugMode"],
 			loadedData["_DGApiKey"],
+			loadedData["_DGTranscriptFolder"],
 			loadedData["_showDeepgramLogo"]
 		);
 		this.settings = AudioNotesSettings.overrideDefaultSettings(newSettings);
@@ -499,7 +500,8 @@ export default class AutomaticAudioNotes extends Plugin {
 					this.app,
 					mp3Files,
 					this.settings.audioNotesApiKey,
-					this.settings.getInfoByApiKey()
+					this.settings.getInfoByApiKey(),
+					this.settings.DGApiKey,
 				).open();
 				this._updateCounts();
 			},
@@ -600,7 +602,8 @@ export default class AutomaticAudioNotes extends Plugin {
 				new EnqueueAudioModal(
 					this.app,
 					this.settings.audioNotesApiKey,
-					this.settings.getInfoByApiKey()
+					this.settings.getInfoByApiKey(),
+					this.settings.DGApiKey,
 				).open();
 			},
 		});

@@ -1,6 +1,7 @@
 import { Notice, Plugin, request } from "obsidian";
 import { XMLParser } from 'fast-xml-parser';
 import type { AudioNotesSettings } from "./AudioNotesSettings";
+import type { DeepgramAlternative, DeepgramTranscriptionResponse } from "./Deepgram";
 
 
 export class Transcript {
@@ -65,6 +66,14 @@ export class Transcript {
         }
         return [undefined, undefined]; // if not found
     }
+
+    public toJSON(): string {
+        const result = [];
+        for (const segment of this.segments) {
+            result.push({id: segment.id, start: segment.start, end: segment.end, text: segment.text});
+        }
+        return JSON.stringify(result, undefined, 2);
+    }
 }
 
 
@@ -85,6 +94,37 @@ export function parseTranscript(contents: string): Transcript {
     } catch {
         return new SrtParser().fromSrt(contents);
     }
+}
+
+
+export function getTranscriptFromDGResponse(response: DeepgramTranscriptionResponse): Transcript {
+    let bestAlternative: DeepgramAlternative | undefined = undefined;
+    let bestConfidence = 0;
+    const alternatives = response.results.channels[0].alternatives;
+    for (const alt of alternatives) {
+        if (alt.confidence > bestConfidence) {
+            bestAlternative = alt;
+        }
+    }
+    const firstWord = bestAlternative!.words[0];
+    const segments: TranscriptSegment[] = [new TranscriptSegment(0, firstWord.start, firstWord.start, firstWord.punctuated_word)];
+    let id = 1;
+    for (let i = 1; i < bestAlternative!.words.length - 2; i++) {
+        const word = bestAlternative!.words[i];
+        const lastSegment = segments[segments.length - 1];
+        lastSegment.text += " " + word.punctuated_word;
+        lastSegment.end = word.end;
+        if ([".", "!", "?"].includes(word.punctuated_word[word.punctuated_word.length - 1])) {
+            const nextWord = bestAlternative!.words[i + 1];
+            segments.push(new TranscriptSegment(id, nextWord.start, nextWord.start, nextWord.punctuated_word));
+            id++;
+        }
+    }
+    const lastWord = bestAlternative!.words[bestAlternative!.words.length - 1];
+    const lastSegment = segments[segments.length - 1];
+    lastSegment.text += " " + lastWord.punctuated_word;
+    lastSegment.end = lastWord.end;
+    return new Transcript(segments);
 }
 
 
@@ -297,7 +337,7 @@ export class TranscriptsCache {
             if (transcriptContents !== undefined) {
                 transcript = parseTranscript(transcriptContents);
             }
-        // Check if the transcript is a youtube video's subtitles.
+            // Check if the transcript is a youtube video's subtitles.
         } else if (transcriptFilename.includes("youtube.com")) {
             const urlParts = transcriptFilename.split("?");
             const urlParams: Map<string, string> = new Map();

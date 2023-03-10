@@ -155,6 +155,18 @@ export class AudioNotesSettingsTab extends PluginSettingTab {
 					})
 			);
 		new Setting(containerEl)
+			.setName("Deepgram Transcript Folder")
+			.setDesc("The folder your transcripts will be saved in when transcribing audio files.")
+			.addText((text) =>
+				text
+					.setPlaceholder("transcripts/")
+					.setValue(this.plugin.settings.DGTranscriptFolder)
+					.onChange(async (value) => {
+						this.plugin.settings.DGTranscriptFolder = value;
+						await this.plugin.saveSettings();
+					})
+			);
+		new Setting(containerEl)
 			.setName("Show Deepgram Logo")
 			.setDesc(
 				"Show the Deepgram logo on the bottom of the note. (requires restart)"
@@ -230,6 +242,7 @@ export interface StringifiedAudioNotesSettings {
 	audioNotesApiKey: string;
 	debugMode: boolean;
 	DGApiKey: string;
+	DGTranscriptFolder: string;
 	showDeepgramLogo: boolean;
 }
 
@@ -241,6 +254,7 @@ const DEFAULT_SETTINGS: StringifiedAudioNotesSettings = {
 	audioNotesApiKey: "",
 	debugMode: false,
 	DGApiKey: "",
+	DGTranscriptFolder: "transcripts/",
 	showDeepgramLogo: true,
 };
 
@@ -253,6 +267,7 @@ export class AudioNotesSettings {
 		private _audioNotesApiKey: string,
 		private _debugMode: boolean,
 		private _DGApiKey: string,
+		private _DGTranscriptFolder: string,
 		private _showDeepgramLogo: boolean
 	) {}
 
@@ -265,6 +280,7 @@ export class AudioNotesSettings {
 			DEFAULT_SETTINGS.audioNotesApiKey,
 			DEFAULT_SETTINGS.debugMode,
 			DEFAULT_SETTINGS.DGApiKey,
+			DEFAULT_SETTINGS.DGTranscriptFolder,
 			DEFAULT_SETTINGS.showDeepgramLogo
 		);
 	}
@@ -381,6 +397,14 @@ export class AudioNotesSettings {
 
 	set DGApiKey(value: string) {
 		this._DGApiKey = value;
+	}
+
+	get DGTranscriptFolder(): string {
+		return this._DGTranscriptFolder;
+	}
+
+	set DGTranscriptFolder(value: string) {
+		this._DGTranscriptFolder = value;
 	}
 
 	get showDeepgramLogo(): boolean {

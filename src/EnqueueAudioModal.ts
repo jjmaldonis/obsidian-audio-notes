@@ -1,12 +1,17 @@
 import { Modal, App, Setting, Notice, request } from "obsidian";
+import queryString from "query-string";
+
 import type { ApiKeyInfo } from "./AudioNotesSettings";
-import { WHISPER_LANGUAGE_CODES } from "./utils";
+import { createAudioNoteFilenameFromUrl, createDeepgramQueryParams } from "./AudioNotesUtils";
+import type { DeepgramTranscriptionResponse } from "./Deepgram";
+import { getTranscriptFromDGResponse } from "./Transcript";
+import { WHISPER_LANGUAGE_CODES, DG_LANGUAGE_CODES } from "./utils";
 
 
 export class EnqueueAudioModal extends Modal {
 	url: string;
 
-	constructor(app: App, private audioNotesApiKey: string, private apiKeyInfo: Promise<ApiKeyInfo | undefined>) {
+	constructor(app: App, private audioNotesApiKey: string, private apiKeyInfo: Promise<ApiKeyInfo | undefined>, private DGApiKey: string) {
 		super(app);
 	}
 
@@ -92,6 +97,92 @@ export class EnqueueAudioModal extends Modal {
 											})
 										}).then((r: any) => {
 											new Notice("Successfully queued .mp3 file for transcription");
+										}).finally(() => {
+											this.close();
+										});
+									} else {
+										new Notice("Make sure your URL is an .mp3, .m4b, or .m4a file. It should end in one of those extensions (excluding everything after an optional question mark).", 10000)
+									}
+								} else {
+									new Notice("Please specify a .mp3 URL, an accuracy level, and a language.")
+								}
+							})
+					);
+			} else if (this.DGApiKey) {
+				new Setting(contentEl)
+					.setName("URL to .mp3 file:")
+					.setDesc("The .mp3 must be publicly available, so it cannot require a login or other authentication to access. The .mp3 file cannot be on your computer, it must be online.")
+					.addText((text) =>
+						text.onChange((value) => {
+							this.url = value
+						}));
+
+				const selectLanguage = contentEl.createEl("select", {
+					cls: "select-model-accuracy"
+				});
+				for (const langs of DG_LANGUAGE_CODES) {
+					const langCode = langs[0];
+					const langName = langs[1];
+					const option = selectLanguage.createEl("option");
+					option.value = langCode;
+					option.textContent = langName;
+				}
+
+				new Setting(contentEl)
+					.addButton((btn) =>
+						btn
+							.setButtonText("Transcribe using Deepgram")
+							.setCta()
+							.onClick(() => {
+								if (selectLanguage.value && this.url) {
+									const splitUrl = this.url.split("?");
+									const endsWithMp3 = splitUrl[0].endsWith(".mp3") || splitUrl[0].endsWith(".m4b") || splitUrl[0].endsWith(".m4a");
+									if (endsWithMp3) {
+										// Make the request to enqueue the item
+										const queryParams = createDeepgramQueryParams(selectLanguage.value);
+										new Notice(`Transcribing audio using Deepgram...`);
+										const req = {
+											url: `https://api.deepgram.com/v1/listen?${queryString.stringify(queryParams)}`,
+											method: 'POST',
+											headers: {
+												'Content-Type': 'application/json',
+												"User-Agent": "Deepgram Obsidian Audio Notes Plugin",
+												Authorization: `token ${this.DGApiKey}`,
+											},
+											contentType: 'application/json',
+											body: JSON.stringify({
+												url: this.url
+											})
+										};
+										request(req).then(async (dgResponseString: string) => {
+											const dgResponse: DeepgramTranscriptionResponse = JSON.parse(dgResponseString);
+											const folder = "transcripts";
+											try {
+												await app.vault.createFolder(folder);
+											} catch (err) {
+												console.info("Audio Notes: Folder exists. Skipping creation.");
+											}
+											// Create the file that contains the transcript.
+											const newNoteFilename = createAudioNoteFilenameFromUrl(this.url);
+											const transcriptFilename = `${folder}/${newNoteFilename}`.replace(/.md/, ".json");
+											const transcriptFileExists = await app.vault.adapter.exists(transcriptFilename);
+											if (!transcriptFileExists) { // only send the request if the file doesn't exist
+												if (!transcriptFileExists) { // only send the request if the file doesn't exist
+													const transcript = getTranscriptFromDGResponse(dgResponse);
+													const transcriptFile = await app.vault.create(
+														transcriptFilename,
+														`"{"segments": ${transcript.toJSON()}}`,
+													);
+													new Notice(`${newNoteFilename} saved!`);
+												}
+											} else {
+												new Notice(`${transcriptFilename} already exists! Did not re-submit for transcription.`)
+											}
+											await navigator.clipboard.writeText(transcriptFilename);
+											new Notice(`Transcript filename copied to clipboard`);
+										}).catch((error) => {
+											console.error("Could not transcribe audio:")
+											console.error(error);
 										}).finally(() => {
 											this.close();
 										});
