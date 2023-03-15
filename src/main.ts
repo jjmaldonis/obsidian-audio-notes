@@ -104,7 +104,6 @@ export default class AutomaticAudioNotes extends Plugin {
 			loadedData["_debugMode"],
 			loadedData["_DGApiKey"],
 			loadedData["_DGTranscriptFolder"],
-			loadedData["_showDeepgramLogo"]
 		);
 		this.settings = AudioNotesSettings.overrideDefaultSettings(newSettings);
 	}
