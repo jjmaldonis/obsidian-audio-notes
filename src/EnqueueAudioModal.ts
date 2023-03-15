@@ -167,14 +167,12 @@ export class EnqueueAudioModal extends Modal {
 											const transcriptFilename = `${folder}/${newNoteFilename}`.replace(/.md/, ".json");
 											const transcriptFileExists = await app.vault.adapter.exists(transcriptFilename);
 											if (!transcriptFileExists) { // only send the request if the file doesn't exist
-												if (!transcriptFileExists) { // only send the request if the file doesn't exist
-													const transcript = getTranscriptFromDGResponse(dgResponse);
-													const transcriptFile = await app.vault.create(
-														transcriptFilename,
-														`"{"segments": ${transcript.toJSON()}}`,
-													);
-													new Notice(`${newNoteFilename} saved!`);
-												}
+												const transcript = getTranscriptFromDGResponse(dgResponse);
+												const transcriptFile = await app.vault.create(
+													transcriptFilename,
+													`"{"segments": ${transcript.toJSON()}}`,
+												);
+												new Notice(`${newNoteFilename} saved!`);
 											} else {
 												new Notice(`${transcriptFilename} already exists! Did not re-submit for transcription.`)
 											}

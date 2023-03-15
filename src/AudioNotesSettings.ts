@@ -166,18 +166,6 @@ export class AudioNotesSettingsTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
-		new Setting(containerEl)
-			.setName("Show Deepgram Logo")
-			.setDesc(
-				"Show the Deepgram logo on the bottom of the note. (requires restart)"
-			)
-			.addToggle((toggle: ToggleComponent) => {
-				toggle.onChange(async (value: boolean) => {
-					this.plugin.settings.showDeepgramLogo = value;
-					await this.plugin.saveSettings();
-				});
-				toggle.setValue(this.plugin.settings.showDeepgramLogo);
-			});
 
 		containerEl.createEl("hr");
 		containerEl.createDiv(
@@ -243,7 +231,6 @@ export interface StringifiedAudioNotesSettings {
 	debugMode: boolean;
 	DGApiKey: string;
 	DGTranscriptFolder: string;
-	showDeepgramLogo: boolean;
 }
 
 const DEFAULT_SETTINGS: StringifiedAudioNotesSettings = {
@@ -255,7 +242,6 @@ const DEFAULT_SETTINGS: StringifiedAudioNotesSettings = {
 	debugMode: false,
 	DGApiKey: "",
 	DGTranscriptFolder: "transcripts/",
-	showDeepgramLogo: true,
 };
 
 export class AudioNotesSettings {
@@ -268,7 +254,6 @@ export class AudioNotesSettings {
 		private _debugMode: boolean,
 		private _DGApiKey: string,
 		private _DGTranscriptFolder: string,
-		private _showDeepgramLogo: boolean
 	) {}
 
 	static fromDefaultSettings(): AudioNotesSettings {
@@ -281,7 +266,6 @@ export class AudioNotesSettings {
 			DEFAULT_SETTINGS.debugMode,
 			DEFAULT_SETTINGS.DGApiKey,
 			DEFAULT_SETTINGS.DGTranscriptFolder,
-			DEFAULT_SETTINGS.showDeepgramLogo
 		);
 	}
 
@@ -321,12 +305,6 @@ export class AudioNotesSettings {
 		}
 		if (data.DGApiKey !== null && data.DGApiKey !== undefined) {
 			settings.DGApiKey = data.DGApiKey!;
-		}
-		if (
-			data.showDeepgramLogo !== null &&
-			data.showDeepgramLogo !== undefined
-		) {
-			settings.showDeepgramLogo = data.showDeepgramLogo!;
 		}
 		return settings;
 	}
@@ -405,14 +383,6 @@ export class AudioNotesSettings {
 
 	set DGTranscriptFolder(value: string) {
 		this._DGTranscriptFolder = value;
-	}
-
-	get showDeepgramLogo(): boolean {
-		return this._showDeepgramLogo;
-	}
-
-	set showDeepgramLogo(value: boolean) {
-		this._showDeepgramLogo = value;
 	}
 
 	async getInfoByApiKey(): Promise<ApiKeyInfo | undefined> {
