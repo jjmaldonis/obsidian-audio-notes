@@ -155,17 +155,17 @@ export class AudioNotesSettingsTab extends PluginSettingTab {
 					})
 			);
 		new Setting(containerEl)
-			.setName("Show Deepgram Logo")
-			.setDesc(
-				"Show the Deepgram logo on the bottom of the note. (requires restart)"
-			)
-			.addToggle((toggle: ToggleComponent) => {
-				toggle.onChange(async (value: boolean) => {
-					this.plugin.settings.showDeepgramLogo = value;
-					await this.plugin.saveSettings();
-				});
-				toggle.setValue(this.plugin.settings.showDeepgramLogo);
-			});
+			.setName("Deepgram Transcript Folder")
+			.setDesc("The folder your transcripts will be saved in when transcribing audio files.")
+			.addText((text) =>
+				text
+					.setPlaceholder("transcripts/")
+					.setValue(this.plugin.settings.DGTranscriptFolder)
+					.onChange(async (value) => {
+						this.plugin.settings.DGTranscriptFolder = value;
+						await this.plugin.saveSettings();
+					})
+			);
 
 		containerEl.createEl("hr");
 		containerEl.createDiv(
@@ -230,7 +230,7 @@ export interface StringifiedAudioNotesSettings {
 	audioNotesApiKey: string;
 	debugMode: boolean;
 	DGApiKey: string;
-	showDeepgramLogo: boolean;
+	DGTranscriptFolder: string;
 }
 
 const DEFAULT_SETTINGS: StringifiedAudioNotesSettings = {
@@ -241,7 +241,7 @@ const DEFAULT_SETTINGS: StringifiedAudioNotesSettings = {
 	audioNotesApiKey: "",
 	debugMode: false,
 	DGApiKey: "",
-	showDeepgramLogo: true,
+	DGTranscriptFolder: "transcripts/",
 };
 
 export class AudioNotesSettings {
@@ -253,7 +253,7 @@ export class AudioNotesSettings {
 		private _audioNotesApiKey: string,
 		private _debugMode: boolean,
 		private _DGApiKey: string,
-		private _showDeepgramLogo: boolean
+		private _DGTranscriptFolder: string,
 	) {}
 
 	static fromDefaultSettings(): AudioNotesSettings {
@@ -265,7 +265,7 @@ export class AudioNotesSettings {
 			DEFAULT_SETTINGS.audioNotesApiKey,
 			DEFAULT_SETTINGS.debugMode,
 			DEFAULT_SETTINGS.DGApiKey,
-			DEFAULT_SETTINGS.showDeepgramLogo
+			DEFAULT_SETTINGS.DGTranscriptFolder,
 		);
 	}
 
@@ -305,12 +305,6 @@ export class AudioNotesSettings {
 		}
 		if (data.DGApiKey !== null && data.DGApiKey !== undefined) {
 			settings.DGApiKey = data.DGApiKey!;
-		}
-		if (
-			data.showDeepgramLogo !== null &&
-			data.showDeepgramLogo !== undefined
-		) {
-			settings.showDeepgramLogo = data.showDeepgramLogo!;
 		}
 		return settings;
 	}
@@ -383,12 +377,12 @@ export class AudioNotesSettings {
 		this._DGApiKey = value;
 	}
 
-	get showDeepgramLogo(): boolean {
-		return this._showDeepgramLogo;
+	get DGTranscriptFolder(): string {
+		return this._DGTranscriptFolder;
 	}
 
-	set showDeepgramLogo(value: boolean) {
-		this._showDeepgramLogo = value;
+	set DGTranscriptFolder(value: string) {
+		this._DGTranscriptFolder = value;
 	}
 
 	async getInfoByApiKey(): Promise<ApiKeyInfo | undefined> {

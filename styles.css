@@ -336,15 +336,20 @@ button.tablinks:not(:last-child) {
 }
 
 .transcription-options-container-for-new-audio-note span {
-	margin-left: 264px;
+	margin-left: auto;
 	align-self: center;
 	margin-bottom: 12px;
 }
 
 .transcription-options-container-for-new-audio-note input[type="checkbox"] {
 	margin-left: 16px;
+	margin-right: 16px;
 	margin-bottom: 12px;
 	align-self: center;
+}
+
+.transcription-options-container-for-new-audio-note select {
+	margin-left: 0px;
 }
 
 .modal-container .prompt .podcast-input-div {

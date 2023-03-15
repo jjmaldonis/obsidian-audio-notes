@@ -106,7 +106,7 @@
 			blobdata
 		);
 		await navigator.clipboard.writeText(`![[${recordingFilename}]]`);
-		new Notice(`${recordingFilename} saved ! Link copied to clipboard`);
+		new Notice(`${recordingFilename} saved! Link copied to clipboard`);
 		modal.close();
 		const mdString = makeTranscriptBlock(
 			transcript || "",
