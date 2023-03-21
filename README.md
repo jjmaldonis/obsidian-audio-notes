@@ -1,4 +1,4 @@
-![version](https://img.shields.io/badge/version-0.6.6-blue)
+![version](https://img.shields.io/badge/version-0.7.0-blue)
 ![license](https://img.shields.io/badge/license-MIT-brightgreen)
 <a href='https://ko-fi.com/jjmaldonis' target='_blank'><img height='20' style='border:0px;height:26px;margin-bottom:-2.5px;' src='https://az743702.vo.msecnd.net/cdn/kofi3.png?v=0' border='0' alt='Buy Me a Coffee :)' /></a>
 
@@ -8,20 +8,18 @@
 
 ## What are Audio Notes?
 
-<strong>Audio Notes</strong> makes it easy to take notes on audio files as you listen to them.
+<strong>Audio Notes</strong> makes it easy to take notes on podcasts and other audio files as you listen to them.
 
 Check it out!
 
 ![](assets/audio-notes-example.gif)
 
-<strong>Audio Notes</strong> creates a quote callout that contains the quote from the audio and an embedded audio player.
-
-Using the speech recognition software described below, you can generate transcripts for your audio files. Once you have a transcript, <strong>Audio Notes</strong> will automatically generate quotes for your notes!
-
-Audio notes look like this:
+An <strong>Audio Note</strong> is a callout that contains the quote from the audio, coupled with an embedded audio player to replay the quote. It look like this:
 ![](assets/renderedNote.png)
 
-To create one, you must specify an audio file and can set a few other attributes. All attributes are set using a callout-like code block:
+You can use the speech-to-text software described below to generate transcripts for your audio files. Once you have a transcript, <strong>Audio Notes</strong> will automatically generate quotes for your notes!
+
+To create an Audio Note you must specify an audio file, and you may set a few other attributes. All attributes are set using a callout-like code block:
 ![](assets/unrenderedNote.png)
 
 * `audio`: (required) The audio filename. It can be a local file or a link to an audio file online.
@@ -36,7 +34,7 @@ To create one, you must specify an audio file and can set a few other attributes
 
 Find the .mp3 (or .m4a or .m4b) file you want to take notes on and move it into your vault. You may want to generate a transcript file to allow <strong>Audio Notes</strong> to automatically insert the transcript of the audio (see below).
 
-Once your .mp3 file is in your vault, run the command `Create new Audio Note in new file`. After you select your mp3 file, create a new note is created with an Audio Note that looks like this:
+Once your .mp3 file is in your vault, run the command `Create new Audio Note in new file`. After selecting an mp3 file, a new note is created with an Audio Note that looks like this:
 
     ```audio-note
     audio: assets/276-paul-grahams-essays-part-2-ads.mp3
@@ -44,15 +42,15 @@ Once your .mp3 file is in your vault, run the command `Create new Audio Note in 
     transcript: assets/276-paul-grahams-essays-part-2-ads.json
     ```
 
-Start listening!
+Now you can start listening.
 
-When you want to take a note on what was said, pause the audio and run the command `Create new Audio Note at current time (+/- 15 seconds)`. A new audio note will be added at the end of the file, based on the current time of the first audio player in the file.
+When you want to take a note on what was said in the audio, pause the player and run the command `Create new Audio Note at current time (+/- 15 seconds)`. A new audio note will be added at the end of the file, based on the current time of the first audio player in the file.
 
-Edit the newly created audio note to your heart's content! You can change the text and the start/end times of the audio segment. If you extend the audio and need to regenerate the quote to include more words, you can delete the quote then use the command `Regenerate Current Audio Note` or `Regenerate All Audio Notes` to re-create the quote from the start/end times you set.
+You can edit the newly created audio note to your heart's content! You can change the text and the start/end times of the audio segment. If you extend the audio and need to regenerate the quote to include more words, you can delete the quote then use the command `Regenerate Current Audio Note` or `Regenerate All Audio Notes` to re-create the quote from the start/end times you set.
 
 Now you can listen to your note any time, anywhere :)
 
-#### Bind Hotkeys to Contro Audio Player
+### Bind Hotkeys to Control the Audio Player
 
 If you're on your computer, you can use hotkeys to control the currently-playing audio player. Below are the hotkeys I use:
 
@@ -65,7 +63,7 @@ If you're on your computer, you can use hotkeys to control the currently-playing
 - `Ctrl + Shift + N`: Create new audio note at current time
 - `Ctrl + Shift + G`: Regenerate current audio note
 
-#### Live Update for Reading
+### Live Update for Reading
 
 If you like to read as you listen, you can add the `liveUpdate: true` attribute to the codeblock.
 
@@ -82,14 +80,14 @@ The workflow below follows the CODE process by [Tiago Forte](https://fortelabs.c
 This is the best way I've found to take notes:
 
 1. Install Audio Notes on your phone, and pin the `Create new Audio Note ...` command to the top of your commands (using the core plugin `Command palette`).
-2. On your computer preload the .mp3 and transcript, and create a new note in your vault with the initial `audio-note`.
+2. On your computer preload the .mp3 and transcript, and create a new note in your vault with the initial Audio Note.
 3. Sync your vault to your phone.
-4. Open Obsidian on your phone and go for a walk! Listen to the .mp3 from within Obsidian using the `audio-note` you just created and synced to your phone.
-5. Pause the audio when you hear something you want to remember, swipe down, and create a new audio note at the end of the note. You can add any personal thoughts at this time below the newly-generated note.
+4. Open Obsidian on your phone and go for a walk! Listen to the .mp3 from within Obsidian using the Audio Note codeblock you just created and synced to your phone.
+5. Pause the audio when you hear something you want to remember and swipe down to create a new audio note at the end of the Obsidian note. You can add any personal thoughts at this time below the newly-generated note.
 6. When you're done, sync your note back to your computer and edit the quotes.
 7. Finish the note by highlighting or summarizing the things you most want to remember.
 
-Here's a video of using <strong>Audio Notes</strong> on your phone.
+Click below to see a video of using <strong>Audio Notes</strong> on your phone.
 
 [<img src="assets/audio-notes-example-mobile_exported_0.jpg" style="width:200px" target="_blank">](https://audio-notes-public.s3.amazonaws.com/audio-notes-example-mobile.mp4)
 
@@ -101,12 +99,33 @@ If you're watching a YouTube video with subtitles, you can take notes on it and 
 2. Embed a YouTube video into your note with `![](https://www.youtube.com/watch?v=ji5_MqicxSo)`.
 3. Run the command `Media Extended: Open Media from Link` and paste the URL of the YouTube video into the box. Start listening.
 4. When you're ready to take a note, run the command `Audio Notes: (Media Extended YouTube Video) Create new Audio Note at current time (+/- 15 seconds)` to create a new Audio Note that includes the subtitles of the YouTube video.
+5. You may want to use the `liveUpdate: true` attribute when listening to YouTube videos.
 
-(Currently only English is supported)
+## Quick Audio Notes
+
+Obsidian provides a Core plugin called *Audio Recorder* which allows you to record voice messages directly in Obsidian, but it lacks some features. We've expanded the functionality of *Audio Recorder* to allow you to add *transcripts* of your voice messages in your Obsidian note.
+
+We also added the ability to pause and resume the recording if you get interupted mid-recording.
+
+### Usage
+
+First, you'll need an API Key from [Deepgram AI](https://dpgr.am/obsidian). It does cost money, but it is really affordable. They also give you up to 12,000 minutes of transcription *for free* as part of the trial period, depending on which additional options you select. After you create a Deepgram API key, add it to your Audio Notes plugin settings.
+
+You can then either use the command `Generate quick audio recording with transcription`, or you can click the microphone icon in the side ribbon. This will pop open a modal giving you the options to select for the transcription. (To learn more about each option, visit their respective links in the modal.) After checking the options you want added, you can hit the green microphone button to start the recording.
+
+When you are done recording, hit the stop button. It will take a few seconds for the transcription to be ready, when it is you can hit the "Save" button and the audio and transcription will be added to your document.
 
 ## Generating a Transcript
 
-There are three ways to generate a transcript: generate it yourself using OpenAI Whisper, generate it automatically, or use an existing .srt file.
+There are three ways to generate a transcript: use Deepgram to generate a transcript from a URL using the <strong>Audio Notes</strong> plugin use an existing .srt file, or generate a transcript yourself.
+
+### Use Deepgram AI to Transcript an Online Audio File
+
+You can use <a href="https://dpgr.am/obsidian">Deepgram AI</a> to transcribe your audio files if they are available online. (Note: we are working on allowing you to transcribe prerecorded audio files that are not online.)
+
+You can use the `Transcribe mp3 file online` command or the `Create new Audio Note in new file` command to transcribe your podcast or audio. The transcript will be saved in JSON format in your vault and can be used for future Audio Notes.
+
+First, you'll need an API Key from [Deepgram AI](https://dpgr.am/obsidian). It does cost money, but it is really affordable. They also give you up to 12,000 minutes of transcription *for free* as part of the trial period, depending on which additional options you select. After you create a Deepgram API key, add it to your Audio Notes plugin settings.
 
 ### Use an Existing .srt File
 
@@ -116,7 +135,7 @@ If you already have the transcript in .srt format, you can use it directly by pu
 
 This process can be difficult because installing OpenAI Whisper is difficult, but here's how it works:
 
-You can use [OpenAI Whisper](https://github.com/openai/whisper) to generate a transcript from an audio file on your computer. At the time of writing this plugin, OpenAI Whisper is the state-of-the-art speech recognition library.
+You can use OpenAI Whisper to generate a transcript from an audio file on your computer.
 
 Running OpenAI Whisper requires Python 3.9. I recommending installing Python 3.9 using [miniconda](https://docs.conda.io/en/latest/miniconda.html). Once python is installed, install OpenAI Whipser with `pip install git+https://github.com/openai/whisper.git`. You may also need to install `ffmpeg`, which is more difficult. See OpenAI Whisper's documentation for more info.
 
@@ -178,76 +197,3 @@ with open(output_filename, "w") as f:
 
 print("Done!")
 ```
-
-### Generating a Transcript Automatically
-
-Automatically generating a transcript makes taking notes on podcasts a breeze. You submit the URL to the podcast's mp3 file, wait 5 minutes for it to process, and start taking notes! It's really that simple.
-
-I'm running a Beta program for new users right now. It has limited access, and there are spots open now.
-
-To use this workflow, you submit a URL to an .mp3 file. The .mp3 file will be processed in the cloud to generate a transcript. After that, the transcript will be used automatically by <strong>Audio Notes</strong> to generate quotes whenever you take a note.
-
-Due to the costs of processing the transcript, I have no choice but to charge for it. I would love to provide it for free, but the costs are non-trivial. As an example, [replicate.com](https://www.replicate.com) charges over $8.00 _per hour!_ for transcribing audio to text with high accuracy. If a podcast is an hour long, that would be $8.00 just to get a highly accurate transcript. I am doing my best to keep costs low, which is why I am running a Beta program.
-
-The pricing below is honestly a fantastic deal.
-
-#### How it Works
-
-For any .mp3 file that is available online, you can transcribe it by using the command `Transcribe mp3 file online`. A dialog window will appear where you can enter the URL of the .mp3 file. Below is the prompt:
-
-![](assets/online-transcription-prompt.png)
-
-You can specify different accuracy levels for the transcription. `Tiny` is the fastest and least accurate transcription level. Each level above `Tiny` increases in both accuracy and cost.
-
-After you submit a URL, it goes into a queue for processing. Once the .mp3 is processed and the transcript is available, you can generate audio notes by setting the `transcript:` field to the .mp3 file's URL. Below is an example using an .mp3 recording of Martin Luther King's famous speech _I Have a Dream_.
-
-	```audio-note
-	audio: https://ia800207.us.archive.org/29/items/MLKDream/MLKDream.mp3#t=10
-	transcript: https://ia800207.us.archive.org/29/items/MLKDream/MLKDream.mp3
-	title: I Have a Dream
-	author: Martin Luther King
-	```
-
-Note that the `transcript` is set to the mp3's URL.
-
-Here's a video of how it all works:
-
-[<img src="assets/audio-notes-online-transcription-example_exported_0.png" style="width:200px" target="_blank">](https://audio-notes-public.s3.amazonaws.com/audio-notes-online-transcription-example.mp4)
-
-#### Pricing
-
-I would love to be able to provide this online transcription service for free. Unfortunately, the costs are prohibitive. For example, [replicate.com](https://www.replicate.com) charges over $8.00 _per hour!_ for transcribing audio to text with high accuracy. If a podcast is an hour long, that would be $8.00 just to get a highly accurate transcript. I am doing my best to keep costs low, which is why I am running a Beta program.
-
-Costs scale with accuracy, so the price tiers increase based on the accuracy level you want.
-
-The Tiny tier is a particularly good deal and the transcripts are quite good.
-
-You not only get the transcript, but you also get the note-taking functionality of <strong>Audio Notes</strong>.
-
-* Tiny: $5/month. This is the fastest tier and the transcripts are excellent.
-* Base: $15/month. Better accuracy than Tiny, especially when transcribing rare words.
-* Small: $30/month. Better accuracy than Base, especially when transcribing names.
-* Medium: Currently unavailable due to costs. Contact me if interested.
-* Large: Currently unavailable due to costs. Contact me if interested.
-
-#### Email Me to Join
-
-If you would like to join the Beta program, please email me. You can find my email address on my bio page at [github.com/jjmaldonis](https://www.github.com/jjmaldonis). In your email, please include which tier you would like to join at. You can also contact me on Discord by searching for "Audio Notes" in the Obsidian Discord server.
-
-After I have replied to you, you'll be able to subscribe on [Ko-Fi](https://ko-fi.com/jjmaldonis) for the tier you want.
-
-I will then send you an API key to use, and you'll be able to start generating transcripts!
-
-If you are overloading the service, I may ask you to slow down your requests so other people can use the service and get their transcripts quickly.
-
-## Quick Audio Notes
-
-Obsidian provides a Core plugin called Audio Recorder which is pretty cool, but it lacks some features. We've expanded on that idea by giving the ability to get transcripts of your audio added directly to the notes. You also have the ability to pause and resume the recording incase you get interupted mid-recording.
-
-### Usage
-
-First, you'll need an API Key from [Deepgram AI](https://dpgr.am/obsidian). It does cost money, but it is really affordable. They also give you up to 12,000 minutes of free transcription for free as part of the trial period, depending on which additional options you select. Add that to the Deepgram API Key setting inside the plugin settings once you have it.
-
-You can then either use the command `Generate quick audio recording with transcription`, or you can click the microphone icon in the side ribbon. This will pop open a modal giving you the options to select for the transcription. (To learn more about each option, visit their respective links in the modal.) After checking the options you want added, you can hit the green microphone button to start the recording.
-
-When you are done recording, hit the stop button. It will take a few seconds for the transcription to be ready, when it is you can hit the "Save" button and the audio and transcription will get added to your document.
