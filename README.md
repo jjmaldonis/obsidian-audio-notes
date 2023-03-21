@@ -101,7 +101,7 @@ If you're watching a YouTube video with subtitles, you can take notes on it and 
 4. When you're ready to take a note, run the command `Audio Notes: (Media Extended YouTube Video) Create new Audio Note at current time (+/- 15 seconds)` to create a new Audio Note that includes the subtitles of the YouTube video.
 5. You may want to use the `liveUpdate: true` attribute when listening to YouTube videos.
 
-## Quick Audio Notes
+## Quick Voice Messages
 
 Obsidian provides a Core plugin called *Audio Recorder* which allows you to record voice messages directly in Obsidian, but it lacks some features. We've expanded the functionality of *Audio Recorder* to allow you to add *transcripts* of your voice messages in your Obsidian note.
 
