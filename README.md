@@ -103,7 +103,7 @@ If you're watching a YouTube video with subtitles, you can take notes on it and 
 
 ## Quick Voice Messages
 
-Obsidian provides a Core plugin called *Audio Recorder* which allows you to record voice messages directly in Obsidian, but it lacks some features. We've expanded the functionality of *Audio Recorder* to allow you to add *transcripts* of your voice messages in your Obsidian note.
+Obsidian provides a Core plugin called *Audio Recorder* which allows you to record voice messages directly in Obsidian, but it lacks some features. We've expanded the functionality of *Audio Recorder* to add transcripts of your voice messages in your Obsidian note.
 
 We also added the ability to pause and resume the recording if you get interupted mid-recording.
 
