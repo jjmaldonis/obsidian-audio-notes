@@ -25,7 +25,7 @@
 	}
 	export let settings = {
 		language: "en-US",
-		modelTier: "base",
+		modelTier: "nova",
 		punctuation: true,
 		numbers: true,
 		profanity: true,
@@ -74,7 +74,9 @@
 				};
 
 				recorder.onerror = function (e: any) {
-					console.error(`Audio Notes: Could not record audio: ${e.error}`);
+					console.error(
+						`Audio Notes: Could not record audio: ${e.error}`
+					);
 				};
 
 				//start recording using 1 second chunks
@@ -131,6 +133,7 @@
 			blobdata,
 			// get options from state
 			{
+        model: 'general',
 				language: settings.language,
 				tier: settings.modelTier,
 				punctuate: settings.punctuation,
@@ -261,21 +264,28 @@
 						</select>
 					</div>
 					<div class="setting-row">
+						<p class="update">
+							UPDATE: More accurate and cheaper <a href="https://blog.deepgram.com/nova-speech-to-text-whisper-api/">Nova model</a> now
+							available
+						</p>
 						<label for="modelTier"
 							><a
 								href="https://developers.deepgram.com/documentation/features/tier/"
 								>Model Tier</a
 							><span
 								class="info"
-								title="Base or Enhanced. Enhanced is more accurate but costs more."
+								title="Nova, Base or Enhanced. Nova is the is most accurate and is cheaper."
 								><Info /></span
 							>
 						</label>
 						<select bind:value={settings.modelTier} id="modelTier">
-							<option value="base">Base (~$0.75/hr)</option>
+							<option value="nova"
+								>Nova (Most accurate) (~$0.26/hr)</option
+							>
 							<option value="enhanced"
 								>Enhanced (~$0.87/hr)</option
 							>
+							<option value="base">Base (~$0.75/hr)</option>
 						</select>
 					</div>
 					<div class="setting-row">
@@ -446,6 +456,9 @@
 		column-gap: 20px;
 		row-gap: 10px;
 		margin-top: 10px;
+	}
+	.update {
+		grid-column: 1 / 3;
 	}
 	.right {
 		margin-top: 20px;
