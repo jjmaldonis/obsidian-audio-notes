@@ -7,8 +7,7 @@ export async function deepgramPrerecorded(
 	// eslint-disable-next-line @typescript-eslint/ban-types
 	options?: any,
 	contentType: string = "audio/webm"
-): Promise<any> {
-	console.log("deepgramPrerecorded called", payload.buffer);
+): Promise<any> {  
 	const response = await request({
 		url: `https://api.deepgram.com/v1/listen?${queryString.stringify(
 			options

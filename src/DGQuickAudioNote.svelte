@@ -133,6 +133,7 @@
 			blobdata,
 			// get options from state
 			{
+        model: 'general',
 				language: settings.language,
 				tier: settings.modelTier,
 				punctuate: settings.punctuation,
