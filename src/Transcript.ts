@@ -1,4 +1,4 @@
-import { Notice, Plugin, request } from "obsidian";
+import { Notice, request } from "obsidian";
 import { XMLParser } from 'fast-xml-parser';
 import type { AudioNotesSettings } from "./AudioNotesSettings";
 import type { DeepgramAlternative, DeepgramTranscriptionResponse } from "./Deepgram";
