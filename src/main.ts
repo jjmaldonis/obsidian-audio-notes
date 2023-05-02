@@ -384,9 +384,9 @@ export default class AutomaticAudioNotes extends Plugin {
 										notTimestamp,
 										url,
 										currentTime -
-											this.settings.minusDuration,
+										this.settings.minusDuration,
 										currentTime +
-											this.settings.plusDuration,
+										this.settings.plusDuration,
 										1.0,
 										url,
 										undefined,
@@ -551,8 +551,7 @@ export default class AutomaticAudioNotes extends Plugin {
 				if (audioPlayer) {
 					audioPlayer.playbackRate -= 0.1;
 					new Notice(
-						`Set playback speed to ${
-							Math.round(audioPlayer.playbackRate * 10) / 10
+						`Set playback speed to ${Math.round(audioPlayer.playbackRate * 10) / 10
 						}`,
 						1000
 					);
@@ -568,8 +567,7 @@ export default class AutomaticAudioNotes extends Plugin {
 				if (audioPlayer) {
 					audioPlayer.playbackRate += 0.1;
 					new Notice(
-						`Set playback speed to ${
-							Math.round(audioPlayer.playbackRate * 10) / 10
+						`Set playback speed to ${Math.round(audioPlayer.playbackRate * 10) / 10
 						}`,
 						1000
 					);
@@ -699,8 +697,8 @@ export default class AutomaticAudioNotes extends Plugin {
 				typeof ctx == "string"
 					? ctx
 					: ctx?.sourcePath ??
-					  this.app.workspace.getActiveFile()?.path ??
-					  "";
+					this.app.workspace.getActiveFile()?.path ??
+					"";
 
 			const audioNote = AudioNote.fromSrc(src);
 			const theDiv = this._createAudioNoteDiv(
@@ -819,7 +817,7 @@ export default class AutomaticAudioNotes extends Plugin {
 
 		// Create the audio player div.
 		if (!audioNote.audioFilename.includes("youtube.com")) {
-			const [audio, audioDiv] = this._createAudioPlayerDiv(audioNote);
+			const [audio, audioDiv] = this._createAudioPlayerDiv(audioNote, contentEl.firstChild as HTMLParagraphElement);
 			if (audioDiv === undefined || audio === undefined) {
 				return calloutDiv;
 			}
@@ -851,6 +849,14 @@ export default class AutomaticAudioNotes extends Plugin {
 		audioNote: AudioNote,
 		audioPlayer: HTMLMediaElement
 	) {
+		// Remove a listener if it exists
+		if ((audioPlayer as any).liveUpdateCallback !== undefined) {
+			audioPlayer.removeEventListener(
+				"timeupdate",
+				(audioPlayer as any).liveUpdateCallback
+			);
+		}
+		// Get the transcript, then add a new listener
 		this.transcriptDatastore
 			.getTranscript(audioNote.transcriptFilename)
 			.then((transcript: Transcript | undefined) => {
@@ -868,33 +874,28 @@ export default class AutomaticAudioNotes extends Plugin {
 							const nextSegment = transcript.segments[i + 1]; // returns `undefined` if index is out of range
 							if (nextSegment !== undefined) {
 								const callback = () => {
-									if (
-										audioPlayer.currentTime >=
-										nextSegment.start
-									) {
+									if (audioPlayer.currentTime >= nextSegment.start) {
 										quoteEl.textContent = nextSegment.text;
 										audioPlayer.removeEventListener(
 											"timeupdate",
-											callback
+											(audioPlayer as any).liveUpdateCallback
 										);
-										const newCallback = makeCallback(
-											transcript,
-											i + 1
-										);
+										const newCallback = makeCallback(transcript, i + 1);
 										if (newCallback) {
 											newCallback();
 										}
 									}
 								};
+								(audioPlayer as any).liveUpdateCallback = callback;
 								audioPlayer.addEventListener(
 									"timeupdate",
 									callback
 								);
 								return callback;
 							}
+
 							return undefined;
 						};
-
 						const newCallback = makeCallback(transcript, i);
 						if (newCallback) {
 							newCallback();
@@ -943,7 +944,8 @@ export default class AutomaticAudioNotes extends Plugin {
 	 * Render the custom audio player itself, and hook up all the buttons to perform the correct functionality.
 	 */
 	private _createAudioPlayerDiv(
-		audioNote: AudioNote
+		audioNote: AudioNote,
+		quoteElement: HTMLParagraphElement,
 	): [HTMLMediaElement | undefined, HTMLElement | undefined] {
 		const fakeUuid: string = generateRandomString(8);
 
@@ -1036,6 +1038,9 @@ export default class AutomaticAudioNotes extends Plugin {
 				audio.play();
 			} else {
 				audio.pause();
+			}
+			if (audioNote.liveUpdate) {
+				this.liveUpdateTranscript(quoteElement, audioNote, audio); // Reset the live update transcript
 			}
 		};
 
@@ -1196,6 +1201,9 @@ export default class AutomaticAudioNotes extends Plugin {
 			this.updateCurrentTimeOfAudio(audio);
 			if (holdForwardBackwardTimeout) {
 				clearTimeout(holdForwardBackwardTimeout);
+			}
+			if (audioNote.liveUpdate) {
+				this.liveUpdateTranscript(quoteElement, audioNote, audio); // Reset the live update transcript
 			}
 			this.saveCurrentPlayerPosition(audio); // Persist the audio's time
 		});

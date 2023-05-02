@@ -30,7 +30,7 @@ export class CreateNewAudioNoteInNewFileModal extends FuzzySuggestModal<TFile> {
 		const fuzzySelectNodes = [prompt.childNodes[0], prompt.childNodes[1]];
 
 		let transcriptionOptionsContainer: HTMLDivElement | undefined = undefined;
-		let submitTranscription: ((url: string) => void) | undefined = undefined;
+		let submitTranscription: ((url: string, noteTitle: string, noteFilename: string) => void) | undefined = undefined;
 		let transcribeCheckbox: HTMLInputElement | undefined = undefined;
 		let createFileOnSubmit = true;
 		// Check if the user has an API key
@@ -86,7 +86,7 @@ export class CreateNewAudioNoteInNewFileModal extends FuzzySuggestModal<TFile> {
 				selectLanguage!.disabled = !(transcribeCheckbox!.checked);
 			}
 
-			submitTranscription = (url: string) => {
+			submitTranscription = (url: string, noteTitle: string, noteFilename: string) => {
 				if (selectModel && selectModel.value && selectLanguage && selectLanguage.value && url && transcribeCheckbox!.checked) {
 					const splitUrl = url.split("?");
 					const endsWithMp3 = splitUrl[0].endsWith(".mp3") || splitUrl[0].endsWith(".m4b") || splitUrl[0].endsWith(".m4a");
@@ -122,7 +122,7 @@ export class CreateNewAudioNoteInNewFileModal extends FuzzySuggestModal<TFile> {
 			text.textContent = "Submit for transcription?";
 			transcriptionOptionsContainer.setChildrenInPlace([text, transcribeCheckbox!, selectModel!, selectLanguage!]);
 		} else if (this.DGApiKey) {
-			submitTranscription = (url: string) => {
+			submitTranscription = (url: string, noteTitle: string, noteFilename: string) => {
 				if (selectLanguage && selectLanguage.value && url && transcribeCheckbox!.checked) {
 					const splitUrl = url.split("?");
 					const endsWithMp3 = splitUrl[0].endsWith(".mp3") || splitUrl[0].endsWith(".m4b") || splitUrl[0].endsWith(".m4a");
@@ -152,22 +152,22 @@ export class CreateNewAudioNoteInNewFileModal extends FuzzySuggestModal<TFile> {
 								console.info("Audio Notes: Folder exists. Skipping creation.");
 							}
 							// Create the file that contains the transcript.
-							const newNoteFilename = createAudioNoteFilenameFromUrl(url);
-							const transcriptFilename = `${folder}/${newNoteFilename}`.replace(/.md/, ".json");
+							const transcriptFilename = `${folder}/${noteFilename}`.replace(/.md/, ".json");
 							const transcriptFileExists = await app.vault.adapter.exists(transcriptFilename);
 							if (!transcriptFileExists) { // only send the request if the file doesn't exist
 								const transcript = getTranscriptFromDGResponse(dgResponse);
 								const transcriptFile = await app.vault.create(
 									transcriptFilename,
-									`"{"segments": ${transcript.toJSON()}}`,
+									`{"segments": ${transcript.toJSON()}}`,
 								);
-								new Notice(`${newNoteFilename} saved!`);
+								console.log(`${noteFilename} saved!`);
+								new Notice(`${noteFilename} saved!`);
 							} else {
+								console.warn(`${transcriptFilename} already exists! Did not re-submit for transcription.`)
 								new Notice(`${transcriptFilename} already exists! Did not re-submit for transcription.`)
 							}
 							// Create the file with the actual Audio Note.
-							const title = createAudioNoteTitleFromUrl(url);
-							createNewAudioNoteFile(app, url, transcriptFilename, newNoteFilename, title);
+							createNewAudioNoteFile(app, url, transcriptFilename, noteFilename, noteTitle);
 							// await navigator.clipboard.writeText(`![[${newNoteFilename}]]`);
 						}).catch((error) => {
 							console.error("Could not transcribe audio:")
@@ -226,7 +226,9 @@ export class CreateNewAudioNoteInNewFileModal extends FuzzySuggestModal<TFile> {
 					createNewAudioNoteFile(app, url, undefined, newNoteFilename, title);
 				}
 				if (transcribeCheckbox && transcribeCheckbox.checked && submitTranscription) {
-					submitTranscription(url);
+					const title = createAudioNoteTitleFromUrl(url);
+					const newNoteFilename = createAudioNoteFilenameFromUrl(url);
+					submitTranscription(url, title, newNoteFilename);
 				}
 				this.close();
 			});
@@ -311,9 +313,9 @@ export class CreateNewAudioNoteInNewFileModal extends FuzzySuggestModal<TFile> {
 				const url = episodeResults.value;
 				const title = episodeResults.options[episodeResults.selectedIndex].text;
 				const newNoteFilename = (title.replace(/[|&\/\\#,+()$~%'":*?<>{}]/g, "-")) + ".md";
-				createNewAudioNoteFile(app, url, undefined, newNoteFilename, title);
+				// createNewAudioNoteFile(app, url, undefined, newNoteFilename, title);
 				if (transcribeCheckbox && transcribeCheckbox.checked && submitTranscription) {
-					submitTranscription(url);
+					submitTranscription(url, title, newNoteFilename);
 				}
 				this.close();
 			});
@@ -340,6 +342,11 @@ export class CreateNewAudioNoteInNewFileModal extends FuzzySuggestModal<TFile> {
 	}
 
 	onChooseItem(file: TFile, evt: MouseEvent | KeyboardEvent) {
+		const [title, newNoteFilename] = this.getTitleAndNoteFilenameFromFilePath(file);
+		createNewAudioNoteFile(app, file.path, undefined, newNoteFilename, title);
+	}
+
+	getTitleAndNoteFilenameFromFilePath(file: TFile): [string, string] {
 		const _title = file.path.split(".").slice(0, file.path.split(".").length - 1).join(".");
 		const newNoteFilename = (_title.replace(/[|&\/\\#,+()$~%'":*?<>{}]/g, "-")) + ".md";
 		let title = file.name;
@@ -347,6 +354,6 @@ export class CreateNewAudioNoteInNewFileModal extends FuzzySuggestModal<TFile> {
 		title = title.replace(/-/g, " ");
 		title = title.replace(/_/g, " ");
 		title = title.split(" ").map((part: string) => part.charAt(0).toUpperCase() + part.slice(1, undefined)).join(" ");
-		createNewAudioNoteFile(app, file.path, undefined, newNoteFilename, title);
+		return [title, newNoteFilename];
 	}
 }
